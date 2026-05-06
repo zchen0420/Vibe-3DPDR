@@ -42,6 +42,18 @@ Completed in this pass:
   `calculate_collision_coefficients(coolant_table, gas_temperature,
   collider_density, coefficients)` and added
   `tests/test_collision_coefficients.F90`.
+- Replaced the old `escape_probability` entry with
+  `calculate_lvg_transition_rates(coolant_table, conditions, ...)`, where
+  `lvg_local_conditions` groups the gas temperature, dust temperature,
+  turbulent velocity, density, and metallicity.
+- Moved `calculate_reaction_rates` into `reaction_rates_module` and replaced
+  the old temperature/ray/column argument list with `reaction_rate_environment`.
+  The reaction identifiers now travel as a named `reaction_rate_indices` type.
+- Moved `calculate_heating_rates` into `heating_rates_module` and replaced the
+  density/temperature/UV/abundance/rate argument list with
+  `heating_rate_environment` plus `reaction_rate_indices`.
+- Removed the old external heating-rate interface from
+  `photo_rate_interfaces_module`; callers now import the owning module directly.
 
 Updated recommendation:
 
@@ -219,7 +231,16 @@ explicit and testable.
 
 The first pass extracted a few kernels, but both main routines remain long.
 
-For `src/physics/chemistry/heating_rates.F90`, the next splits should be:
+Status: the public entries are now typed module APIs instead of long external
+subroutine calls:
+
+- `reaction_rate_environment`
+- `reaction_rate_indices`
+- `heating_rate_environment`
+- `lvg_local_conditions`
+
+The remaining work is inside the bodies. For `src/physics/chemistry/heating_rates.F90`,
+the next splits should be:
 
 - dust photoelectric heating into a helper that owns the Newton solve
 - PAH heating/cooling into one helper returning net PAH heating plus optional

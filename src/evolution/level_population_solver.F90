@@ -5,6 +5,7 @@ module level_population_solver_module
   use coolants_module, only : COLLIDER_ELECTRON, COLLIDER_H, COLLIDER_H2, COLLIDER_HE, COLLIDER_ORTHO_H2, &
       &COLLIDER_PARA_H2, COLLIDER_PROTON, COLLISION_PARTNER_COUNT, COOLANT_COUNT, COOLANT_CII, COOLANT_CI, &
       &COOLANT_OI, COOLANT_C12O
+  use escape_probability_module, only : calculate_lvg_transition_rates, lvg_local_conditions
   use maincode_module, only : coolant, coolant_iteration, grid, levpop_iteration, maxpoints, nrays, pdr_ptot, runtime, thermal
   use global_module, only : metallicity, NELECT, species_idx
   use convergence_module, only : set_lte_populations
@@ -236,18 +237,20 @@ contains
       type(coolant_work_item), intent(inout) :: work_item
       integer(kind=i4b), intent(in) :: target_point_index
       integer(kind=i4b), intent(in) :: target_point_id
+      type(lvg_local_conditions) :: conditions
 
-      call escape_probability(work_item%transition, thermal%dust_temperature(target_point_index), &
-          & nrays, work_item%level_count, coolant(work_item%coolant_id)%a_coeffs, &
-          & coolant(work_item%coolant_id)%b_coeffs, work_item%collision_coefficients, &
-          & coolant(work_item%coolant_id)%frequencies, work_item%evalpop, maxpoints, &
-          & thermal%gas_temperature(target_point_index), runtime%turbulent_velocity, &
-          & grid%points(target_point_id)%epray, &
-          & grid%points(target_point_id)%coolant_state(work_item%coolant_id)%population, &
-          & grid%points(target_point_id)%epoint, coolant(work_item%coolant_id)%weights, &
-          & coolant_iteration(work_item%coolant_id)%cooling_rate(target_point_index), &
-          & work_item%line, work_item%optical_depth, work_item%coolant_id, &
-          & grid%points(target_point_id)%rho, metallicity, work_item%beta)
+      conditions%gas_temperature = thermal%gas_temperature(target_point_index)
+      conditions%dust_temperature = thermal%dust_temperature(target_point_index)
+      conditions%turbulent_velocity = runtime%turbulent_velocity
+      conditions%gas_density = grid%points(target_point_id)%rho
+      conditions%metallicity = metallicity
+
+      call calculate_lvg_transition_rates(coolant(work_item%coolant_id), conditions, &
+          &grid%points(target_point_id)%epray, &
+          &grid%points(target_point_id)%coolant_state(work_item%coolant_id)%population, &
+          &grid%points(target_point_id)%epoint, work_item%evalpop, work_item%collision_coefficients, &
+          &work_item%transition, coolant_iteration(work_item%coolant_id)%cooling_rate(target_point_index), &
+          &work_item%line, work_item%optical_depth, work_item%beta)
 
       grid%points(target_point_id)%coolant_state(work_item%coolant_id)%line = work_item%line
       grid%points(target_point_id)%coolant_state(work_item%coolant_id)%optical_depth = work_item%optical_depth

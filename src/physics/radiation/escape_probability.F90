@@ -1,174 +1,235 @@
-!T.Bisbas, T.Bell
-
-subroutine escape_probability(transition, dust_temperature, nrays, nlev, &
-      &A_COEFFS, B_COEFFS, C_COEFFS, &
-      &frequencies,s_evalpop, maxpoints, Tguess, v_turb,&
-      &s_jjr, s_pop, s_evalpoint, weights,cooling_rate,line,tau,coolant,density,metallicity,bbeta)
-
-
-  use definitions
-  use maincode_module, only : grid, geometry
-  use healpix_types
-  use healpix_module
-  use global_module, only: g2d
-
+module escape_probability_module
+  use coolants_module, only : coolant_data
+  use definitions, only : dp
+  use global_module, only : g2d
+  use healpix_types, only : c, hp, i4b, kb, mp, pc, pi
+  use maincode_module, only : geometry
   implicit none
 
-  integer(kind=i4b), intent(in) :: nrays
-  integer(kind=i4b), intent(in) :: nlev
-  integer(kind=i4b), intent(in) :: maxpoints
-  integer(kind=i4b), intent(in) :: s_jjr(0:nrays-1)
-  integer(kind=i4b), intent(in) :: coolant
-  real(kind=dp), intent(inout) :: transition(1:nlev,1:nlev)
-  real(kind=dp), intent(in) :: A_COEFFS(1:nlev, 1:nlev)
-  real(kind=dp), intent(in) :: B_COEFFS(1:nlev, 1:nlev)
-  real(kind=dp), intent(in) :: C_COEFFS(1:nlev, 1:nlev)
-  real(kind=dp), intent(in) :: frequencies(1:nlev, 1:nlev)
-  real(kind=dp), intent(in) :: s_evalpop(0:nrays-1,0:maxpoints,1:nlev)
-  real(kind=dp), intent(in) :: s_evalpoint(1:3,0:nrays-1,0:maxpoints)
-  real(kind=dp), intent(in) :: Tguess, v_turb
-  real(kind=dp), intent(in) :: weights(1:nlev)
-  real(kind=dp), intent(in) :: s_pop(1:nlev)
-  real(kind=dp), intent(in) :: dust_temperature,density,metallicity
+  private
+  public :: lvg_local_conditions
+  public :: calculate_lvg_transition_rates
 
-  integer(kind=i4b) :: i, j
-  integer(kind=i4b) :: ilevel, jlevel
-  real(kind=dp) :: beta_ij, beta_ij_sum
-  real(kind=dp) :: frac1, frac2, frac3, rhs2
-  real(kind=dp) :: tpop, tmp2
-  real(kind=dp) :: S_ij, BB_ij
-  real(kind=dp) :: tau_increment
-  real(kind=dp), allocatable :: tau_ij(:)
-  real(kind=dp), allocatable :: field(:,:)
-  real(kind=dp) :: beta_ij_ray(0:nrays-1)
-  real(kind=dp), intent(out) :: line(1:nlev,1:nlev)
-  real(kind=dp), intent(out) :: cooling_rate
-  real(kind=dp), intent(out) :: tau(1:nlev,1:nlev,0:nrays-1)
-  real(kind=dp),intent(out) :: bbeta(1:nlev,1:nlev,0:nrays-1)
-  real(kind=dp) :: emissivity, bb_ij_dust, ngrain, rho_grain
+  type :: lvg_local_conditions
+    real(kind=dp) :: gas_temperature
+    real(kind=dp) :: dust_temperature
+    real(kind=dp) :: turbulent_velocity
+    real(kind=dp) :: gas_density
+    real(kind=dp) :: metallicity
+  end type lvg_local_conditions
 
+contains
 
-  line=0.0D0
-  cooling_rate = 0.0D0
-  allocate(tau_ij(0:nrays-1))
-  allocate(field(1:nlev,1:nlev))
-  field=0.0D0
-  frac2=1.0D0/sqrt(8.0*KB*Tguess/PI/MP + v_turb**2)
-  !frac2=1.0D0/sqrt(KB*Tguess/PI/MP+v_turb**2/2.)/sqrt(2.*PI)
-  do ilevel=1,nlev
-    do jlevel=1,nlev !i>j
-      if (jlevel.ge.ilevel) exit
-      tau_ij=0.0D0; beta_ij=0.0D0; beta_ij_ray=0.0D0; beta_ij_sum=0.0D0
-      frac1=(A_COEFFS(ilevel,jlevel)*(C**3))/(8.0*pi*(frequencies(ilevel,jlevel)**3))
-      TMP2=2.0D0*HP*(FREQUENCIES(ilevel,jlevel)**3)/(C**2)
+  subroutine calculate_lvg_transition_rates(coolant_table, conditions, ray_point_count, level_population, &
+        &evaluation_points, evaluation_populations, collision_coefficients, transition_rates, cooling_rate, &
+        &line_emission, optical_depth, beta)
+    type(coolant_data), intent(in) :: coolant_table
+    type(lvg_local_conditions), intent(in) :: conditions
+    integer(kind=i4b), intent(in) :: ray_point_count(0:)
+    real(kind=dp), intent(in) :: level_population(1:)
+    real(kind=dp), intent(in) :: evaluation_points(1:,0:,0:)
+    real(kind=dp), intent(in) :: evaluation_populations(0:,0:,1:)
+    real(kind=dp), intent(in) :: collision_coefficients(1:,1:)
+    real(kind=dp), intent(inout) :: transition_rates(1:,1:)
+    real(kind=dp), intent(out) :: cooling_rate
+    real(kind=dp), intent(out) :: line_emission(1:,1:)
+    real(kind=dp), intent(out) :: optical_depth(1:,1:,0:)
+    real(kind=dp), intent(out) :: beta(1:,1:,0:)
 
-      !Planck function !2.7D0 is the CMBR temperature
-      BB_ij = TMP2*(1.0D0/(EXP(HP*frequencies(ilevel,jlevel)/KB/2.7D0)-1.0D0))
-      NGRAIN=2.0D-12*density*metallicity*100./g2d!densityofgas depth depented
-      rho_grain=2.0D0
-      EMISSIVITY=(RHO_GRAIN*NGRAIN)*(0.01*(1.3*FREQUENCIES(ilevel,jlevel)/3.0D11))
-      BB_ij_dust = TMP2*(1.0D0/(EXP(HP*frequencies(ilevel,jlevel)/KB/DUST_TEMPERATURE)-1.D0)*EMISSIVITY)
-      BB_ij = BB_ij + BB_ij_dust
-      if (s_pop(ilevel).eq.0) then
-        S_ij=0.0D0
-        beta_ij=1.0D0
-        goto 2
-      endif
-      TPOP=(s_pop(jlevel)*WEIGHTS(ilevel))/(s_pop(ilevel)*WEIGHTS(jlevel))-1.0D0
-      IF(abs(TPOP).lt.1.0D-50) then
-        S_ij=HP*FREQUENCIES(ilevel,jlevel)*s_pop(ilevel)*A_COEFFS(ilevel,jlevel)/4./pi
-        beta_ij=1.0D0
-        goto 1
-      else
-        !calculation of source function (taken from UCL_PDR)
-        S_ij=TMP2/TPOP
-      endif
-      do j=0,nrays-1
-#ifdef PSEUDO_1D
-        if (j.ne.6) then
-          tau_ij(j) = 1.0D50
-        else
-#endif
-#ifdef PSEUDO_2D
-          if (abs(geometry%ray_vectors(3,j).gt.1d-10) tau_ij(j) = 1.0D50 !Not in Equator
-#endif
+    integer(kind=i4b) :: eval_index
+    integer(kind=i4b) :: lower_level
+    integer(kind=i4b) :: nlevels
+    integer(kind=i4b) :: ray_index
+    integer(kind=i4b) :: ray_lower
+    integer(kind=i4b) :: ray_upper
+    integer(kind=i4b) :: upper_level
+    real(kind=dp) :: background_intensity
+    real(kind=dp) :: beta_ij
+    real(kind=dp) :: beta_ij_sum
+    real(kind=dp) :: dust_background
+    real(kind=dp) :: emissivity
+    real(kind=dp) :: line_prefactor
+    real(kind=dp) :: line_width_factor
+    real(kind=dp) :: source_function
+    real(kind=dp) :: step_length
+    real(kind=dp) :: tau_increment
+    real(kind=dp) :: transition_population
+    real(kind=dp) :: upper_population
+    real(kind=dp), allocatable :: beta_by_ray(:)
+    real(kind=dp), allocatable :: field(:,:)
+    real(kind=dp), allocatable :: tau_by_ray(:)
 
+    nlevels = size(level_population)
+    ray_lower = lbound(ray_point_count,1)
+    ray_upper = ubound(ray_point_count,1)
 
-          do i=1,s_jjr(j)
-            !calculations of tau_ij
-            frac3=((s_evalpop(j,i-1,jlevel)*weights(ilevel)-s_evalpop(j,i-1,ilevel)*weights(jlevel))+&
-                &(s_evalpop(j,i,jlevel)*weights(ilevel)-s_evalpop(j,i,ilevel)*weights(jlevel)))/2./weights(jlevel)
-            rhs2=sqrt((s_evalpoint(1,j,i-1)-s_evalpoint(1,j,i))**2+&
-                &(s_evalpoint(2,j,i-1)-s_evalpoint(2,j,i))**2+&
-                &(s_evalpoint(3,j,i-1)-s_evalpoint(3,j,i))**2) !adaptive step
-            tau_increment=frac1*frac2*frac3*rhs2*PC
-            tau_ij(j)=tau_ij(j)+tau_increment !optical depth
-          enddo !i=1,jr(j)
-#ifdef PSEUDO_1D
+    call assert_lvg_dimensions(coolant_table, nlevels, ray_lower, ray_upper, evaluation_points, &
+        &evaluation_populations, collision_coefficients, transition_rates, line_emission, optical_depth, beta)
+
+    line_emission = 0.0D0
+    cooling_rate = 0.0D0
+    allocate(tau_by_ray(ray_lower:ray_upper))
+    allocate(beta_by_ray(ray_lower:ray_upper))
+    allocate(field(1:nlevels,1:nlevels))
+    field = 0.0D0
+
+    line_width_factor = 1.0D0/sqrt(8.0D0*kb*conditions%gas_temperature/pi/mp + &
+        &conditions%turbulent_velocity**2)
+
+    do upper_level=1,nlevels
+      do lower_level=1,nlevels
+        if (lower_level.ge.upper_level) exit
+
+        tau_by_ray = 0.0D0
+        beta_ij = 0.0D0
+        beta_by_ray = 0.0D0
+        beta_ij_sum = 0.0D0
+        line_prefactor = (coolant_table%a_coeffs(upper_level,lower_level)*(c**3)) &
+            &/(8.0D0*pi*(coolant_table%frequencies(upper_level,lower_level)**3))
+        upper_population = 2.0D0*hp*(coolant_table%frequencies(upper_level,lower_level)**3)/(c**2)
+
+        background_intensity = upper_population*(1.0D0/(exp(hp*coolant_table%frequencies(upper_level,lower_level) &
+            &/kb/2.7D0)-1.0D0))
+        emissivity = (2.0D0*2.0D-12*conditions%gas_density*conditions%metallicity*100.0D0/g2d) &
+            &*(0.01D0*(1.3D0*coolant_table%frequencies(upper_level,lower_level)/3.0D11))
+        dust_background = upper_population*(1.0D0/(exp(hp*coolant_table%frequencies(upper_level,lower_level) &
+            &/kb/conditions%dust_temperature)-1.0D0)*emissivity)
+        background_intensity = background_intensity + dust_background
+
+        if (level_population(upper_level).eq.0.0D0) then
+          source_function = 0.0D0
+          beta_ij = 1.0D0
+          goto 2
         endif
+
+        transition_population = (level_population(lower_level)*coolant_table%weights(upper_level)) &
+            &/(level_population(upper_level)*coolant_table%weights(lower_level))-1.0D0
+        if (abs(transition_population).lt.1.0D-50) then
+          source_function = hp*coolant_table%frequencies(upper_level,lower_level) &
+              &*level_population(upper_level)*coolant_table%a_coeffs(upper_level,lower_level)/(4.0D0*pi)
+          beta_ij = 1.0D0
+          goto 1
+        else
+          source_function = upper_population/transition_population
+        endif
+
+        do ray_index=ray_lower,ray_upper
+#ifdef PSEUDO_1D
+          if (ray_index.ne.6) then
+            tau_by_ray(ray_index) = 1.0D50
+          else
 #endif
 #ifdef PSEUDO_2D
-      endif
+            if (abs(geometry%ray_vectors(3,ray_index)).gt.1.0D-10) tau_by_ray(ray_index) = 1.0D50
 #endif
-
-
-      ! Prevent exploding chemistry%network%beta values caused by strong masing (tau < -10)
-      ! Assume tau = -10 and calculate the escape probability accordingly
-      if (tau_ij(j).lt.-5.0D0) then
-        beta_ij_ray(j)=(1.0D0-EXP(5.0D0))/(-5.0D0)
-        !           ! Treat weak masing using the standard escape probability formalism
-        !           else if (tau_ij(j).lt.0.0D0) then
-        !              beta_ij_ray(j)=(1.0D0-EXP(-tau_ij(j)))/tau_ij(j)
-        ! Prevent floating point overflow caused by very low opacity (tau < 1e-6)
-      else if (abs(tau_ij(j)).lt.1.0D-8) then !was D-6
-        beta_ij_ray(j)=1.0D0
-        ! For all other cases use the standard escape probability formalism
-      else
-        beta_ij_ray(j)=(1.0D0-EXP(-tau_ij(j)))/tau_ij(j)
-      endif
-
-      !=============
-      tau(ilevel,jlevel,j)=tau_ij(j)
-      bbeta(ilevel,jlevel,j)=beta_ij_ray(j)
-      !=============
-
-    enddo !j=0,nrays-1
-    beta_ij_sum=sum(beta_ij_ray)
-    !calculation of average beta_ij in the origin grid point
+            do eval_index=1,ray_point_count(ray_index)
+              tau_increment = ((evaluation_populations(ray_index,eval_index-1,lower_level) &
+                  &*coolant_table%weights(upper_level) &
+                  &-evaluation_populations(ray_index,eval_index-1,upper_level)*coolant_table%weights(lower_level)) &
+                  &+(evaluation_populations(ray_index,eval_index,lower_level)*coolant_table%weights(upper_level) &
+                  &-evaluation_populations(ray_index,eval_index,upper_level)*coolant_table%weights(lower_level))) &
+                  &/(2.0D0*coolant_table%weights(lower_level))
+              step_length = sqrt((evaluation_points(1,ray_index,eval_index-1) &
+                  &-evaluation_points(1,ray_index,eval_index))**2 &
+                  &+(evaluation_points(2,ray_index,eval_index-1) &
+                  &-evaluation_points(2,ray_index,eval_index))**2 &
+                  &+(evaluation_points(3,ray_index,eval_index-1) &
+                  &-evaluation_points(3,ray_index,eval_index))**2)
+              tau_by_ray(ray_index) = tau_by_ray(ray_index) &
+                  &+line_prefactor*line_width_factor*tau_increment*step_length*pc
+            enddo
 #ifdef PSEUDO_1D
-    beta_ij = beta_ij_sum
+          endif
+#endif
+          beta_by_ray(ray_index) = escape_probability_for_tau(tau_by_ray(ray_index))
+          optical_depth(upper_level,lower_level,ray_index) = tau_by_ray(ray_index)
+          beta(upper_level,lower_level,ray_index) = beta_by_ray(ray_index)
+        enddo
+
+        beta_ij_sum = sum(beta_by_ray)
+#ifdef PSEUDO_1D
+        beta_ij = beta_ij_sum
 #elif PSEUDO_2D
-    beta_ij = beta_ij_sum / 4.
+        beta_ij = beta_ij_sum / 4.0D0
 #else
-    beta_ij = beta_ij_sum / real(nrays,kind=DP)
+        beta_ij = beta_ij_sum / real(size(ray_point_count),kind=dp)
 #endif
 
-    1 continue
-    line(ilevel,jlevel) = A_COEFFS(ilevel,jlevel)*HP*frequencies(ilevel,jlevel) * &
-        & s_pop(ilevel)*beta_ij*(S_ij-BB_ij)/S_ij
-    cooling_rate = cooling_rate + line(ilevel,jlevel)
-    2 continue
-    !<J_ij>
-    field(ilevel,jlevel) = (1.0D0-beta_ij)*S_ij + beta_ij*BB_ij
-    field(jlevel,ilevel) = field(ilevel,jlevel)
-  enddo !jlevel=1,nlev
-enddo !ilevel=1,nlev
+1       continue
+        line_emission(upper_level,lower_level) = coolant_table%a_coeffs(upper_level,lower_level)*hp &
+            &*coolant_table%frequencies(upper_level,lower_level)*level_population(upper_level)*beta_ij &
+            &*(source_function-background_intensity)/source_function
+        cooling_rate = cooling_rate + line_emission(upper_level,lower_level)
+2       continue
+        field(upper_level,lower_level) = (1.0D0-beta_ij)*source_function + beta_ij*background_intensity
+        field(lower_level,upper_level) = field(upper_level,lower_level)
+      enddo
+    enddo
 
+    do upper_level=1,nlevels
+      do lower_level=1,nlevels
+        transition_rates(upper_level,lower_level) = coolant_table%a_coeffs(upper_level,lower_level) &
+            &+coolant_table%b_coeffs(upper_level,lower_level)*field(upper_level,lower_level) &
+            &+collision_coefficients(upper_level,lower_level)
+        if (abs(transition_rates(upper_level,lower_level)).lt.1.0D-50) then
+          transition_rates(upper_level,lower_level) = 0.0D0
+        endif
+      enddo
+    enddo
 
-!R_IJ CALCULATIONS
-!Update the transition matrix: Rij = Aij + Bij.<J> + Cij
-DO ilevel=1,NLEV
-  DO jlevel=1,NLEV
-    TRANSITION(ilevel,jlevel)=A_COEFFS(ilevel,jlevel)&
-        & +B_COEFFS(ilevel,jlevel)*FIELD(ilevel,jlevel)&
-        & +C_COEFFS(ilevel,jlevel)
-    IF(ABS(TRANSITION(ilevel,jlevel)).LT.1.0D-50) TRANSITION(ilevel,jlevel)=0.0D0
-  ENDDO !jlevel=1,nlev
-ENDDO !ilevel=1,nlev
+    deallocate(tau_by_ray)
+    deallocate(beta_by_ray)
+    deallocate(field)
+  end subroutine calculate_lvg_transition_rates
 
-deallocate(tau_ij)
-deallocate(field)
+  subroutine assert_lvg_dimensions(coolant_table, nlevels, ray_lower, ray_upper, evaluation_points, &
+        &evaluation_populations, collision_coefficients, transition_rates, line_emission, optical_depth, beta)
+    type(coolant_data), intent(in) :: coolant_table
+    integer(kind=i4b), intent(in) :: nlevels
+    integer(kind=i4b), intent(in) :: ray_lower
+    integer(kind=i4b), intent(in) :: ray_upper
+    real(kind=dp), intent(in) :: evaluation_points(1:,0:,0:)
+    real(kind=dp), intent(in) :: evaluation_populations(0:,0:,1:)
+    real(kind=dp), intent(in) :: collision_coefficients(1:,1:)
+    real(kind=dp), intent(in) :: transition_rates(1:,1:)
+    real(kind=dp), intent(in) :: line_emission(1:,1:)
+    real(kind=dp), intent(in) :: optical_depth(1:,1:,0:)
+    real(kind=dp), intent(in) :: beta(1:,1:,0:)
 
-return
+    if (coolant_table%nlevels.ne.nlevels) stop 'calculate_lvg_transition_rates received inconsistent levels'
+    if (size(collision_coefficients,1).ne.nlevels .or. size(collision_coefficients,2).ne.nlevels) then
+      stop 'calculate_lvg_transition_rates received inconsistent collision coefficients'
+    endif
+    if (size(transition_rates,1).ne.nlevels .or. size(transition_rates,2).ne.nlevels) then
+      stop 'calculate_lvg_transition_rates received inconsistent transition rates'
+    endif
+    if (size(line_emission,1).ne.nlevels .or. size(line_emission,2).ne.nlevels) then
+      stop 'calculate_lvg_transition_rates received inconsistent line output'
+    endif
+    if (lbound(evaluation_points,2).ne.ray_lower .or. ubound(evaluation_points,2).ne.ray_upper) then
+      stop 'calculate_lvg_transition_rates received inconsistent evaluation point rays'
+    endif
+    if (lbound(evaluation_populations,1).ne.ray_lower .or. ubound(evaluation_populations,1).ne.ray_upper) then
+      stop 'calculate_lvg_transition_rates received inconsistent evaluation population rays'
+    endif
+    if (lbound(optical_depth,3).ne.ray_lower .or. ubound(optical_depth,3).ne.ray_upper) then
+      stop 'calculate_lvg_transition_rates received inconsistent optical-depth rays'
+    endif
+    if (lbound(beta,3).ne.ray_lower .or. ubound(beta,3).ne.ray_upper) then
+      stop 'calculate_lvg_transition_rates received inconsistent beta rays'
+    endif
+  end subroutine assert_lvg_dimensions
 
-end subroutine escape_probability
+  real(kind=dp) function escape_probability_for_tau(tau)
+    real(kind=dp), intent(in) :: tau
+
+    if (tau.lt.-5.0D0) then
+      escape_probability_for_tau = (1.0D0-exp(5.0D0))/(-5.0D0)
+    else if (abs(tau).lt.1.0D-8) then
+      escape_probability_for_tau = 1.0D0
+    else
+      escape_probability_for_tau = (1.0D0-exp(-tau))/tau
+    endif
+  end function escape_probability_for_tau
+
+end module escape_probability_module

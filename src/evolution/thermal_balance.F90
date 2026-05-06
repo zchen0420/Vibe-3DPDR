@@ -1,10 +1,12 @@
 module thermal_balance_module
   use definitions, only : dp
   use healpix_types, only : i4b
-  use maincode_module, only : chemistry, Fcrit, first_time, grid, level_conv, nreac, nspec, pdr_ptot, &
+  use heating_rates_module, only : calculate_heating_rates, heating_rate_environment
+  use maincode_module, only : chemistry, Fcrit, first_time, grid, level_conv, pdr_ptot, &
       &runtime, Tdiff, thermal, Tmin, Tmax
   use global_module, only : all_heating
-  use point_reaction_rates_module, only : calculate_point_reaction_rates, reaction_rate_indices
+  use point_reaction_rates_module, only : calculate_point_reaction_rates
+  use reaction_rates_module, only : reaction_rate_indices
 
   implicit none
 
@@ -16,6 +18,7 @@ contains
 
     integer(kind=i4b) :: point_index
     integer(kind=i4b) :: point_id
+    type(heating_rate_environment) :: heating_environment
     type(reaction_rate_indices) :: rate_indices
     real(kind=dp) :: point_heating(1:12)
     real(kind=dp) :: current_temperature
@@ -27,11 +30,8 @@ contains
 #endif
 
       call calculate_point_reaction_rates(point_index, point_id, rate_indices)
-      call calculate_heating_rates(grid%points(point_id)%rho,thermal%gas_temperature(point_index),thermal%dust_temperature(point_index),&
-          &grid%points(point_id)%UVfield,runtime%turbulent_velocity,nspec,grid%points(point_id)%abundance(:),nreac,chemistry%rate,point_heating,&
-          &rate_indices%grain_surface, rate_indices%h2_photodissociation, &
-          &rate_indices%hd_photodissociation, rate_indices%co_photodissociation, &
-          &rate_indices%carbon_photoionization, rate_indices%silicon_photoionization)
+      call set_heating_environment(point_index, point_id, heating_environment)
+      call calculate_heating_rates(heating_environment, rate_indices, point_heating)
 
       all_heating(point_index,:)=point_heating
 
@@ -141,5 +141,19 @@ contains
 #endif
     enddo
   end subroutine calculate_heating_and_temperature_updates
+
+  subroutine set_heating_environment(point_index, point_id, environment)
+    integer(kind=i4b), intent(in) :: point_index
+    integer(kind=i4b), intent(in) :: point_id
+    type(heating_rate_environment), intent(out) :: environment
+
+    environment%density = grid%points(point_id)%rho
+    environment%gas_temperature = thermal%gas_temperature(point_index)
+    environment%dust_temperature = thermal%dust_temperature(point_index)
+    environment%uv_field = grid%points(point_id)%UVfield
+    environment%turbulent_velocity = runtime%turbulent_velocity
+    environment%abundance => grid%points(point_id)%abundance
+    environment%reaction_rate => chemistry%rate
+  end subroutine set_heating_environment
 
 end module thermal_balance_module

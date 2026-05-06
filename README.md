@@ -25,6 +25,10 @@ codebase:
 - Renamed legacy abbreviated files and procedures toward lowercase
   `snake_case` names, for example `reaction_rates`, `heating_rates`,
   `collision_coefficients`, and `level_population_system`.
+- Replaced the hardest-to-read physics entry points with module APIs that carry
+  local state in small derived types: `calculate_collision_coefficients`,
+  `calculate_lvg_transition_rates`, `calculate_reaction_rates`, and
+  `calculate_heating_rates`.
 
 Readers can find the calculation phase they care about, run tests
 before changing behavior, and see where future modularization should happen.

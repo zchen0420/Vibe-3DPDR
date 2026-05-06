@@ -1,42 +1,61 @@
-!=======================================================================
-!
-!  Calculate the RATE coefficients for all reactions at the specified
-!  temperature and visual extinction A_V. The photodissociation of H2
-!  and CO and the photoionization of CI and SI are treated separately
-!  in detail (see the routines in photo_rate_interfaces.F90). Multiple rates for
-!  the same reaction (duplicates) are allowed in the ratefile and are
-!  activated based on their minimum and maximum temperature specified
-!  in that file. Negative GAMMA factors are ignored below the minimum
-!  temperature at which the reaction RATE is valid.
-!
-!  X-ray induced reaction rates are calculated following the detailed
-!  treatment of Meijerink & Spaans (2005, A&A, 436, 397).
-!
-!-----------------------------------------------------------------------
-SUBROUTINE CALCULATE_REACTION_RATES(TEMPERATURE,DUST_TEMPERATURE,NRAYS,RAD_SURFACE, &
-      & AV,COLUMN,NREAC,REACTANT,PRODUCT,ALPHA,BETA,GAMMA,RATE,RTMIN,RTMAX,DUPLICATE,NSPEC, &
-      & NRGR,NRH2,NRHD,NRCO,NRCI,NRSI)
-
-  use definitions
-  use healpix_types
+module reaction_rates_module
+  use chemistry_network_module, only : reaction_network
+  use definitions, only : dp
   use global_module
+  use healpix_types, only : i4b
+  use maincode_module, only : runtime
   use photo_rate_interfaces_module
   use reaction_rate_kernels_module
-  use maincode_module, only : runtime
+  implicit none
 
-  IMPLICIT NONE
+  private
+  public :: reaction_rate_environment
+  public :: reaction_rate_indices
+  public :: calculate_reaction_rates
 
-  INTEGER(kind=i4b), intent(in) :: NRAYS, NSPEC
-  real(kind=dp),intent(in) :: TEMPERATURE, DUST_TEMPERATURE
-  real(kind=dp),intent(in) :: RAD_SURFACE(0:nrays-1),AV(0:nrays-1),COLUMN(0:nrays-1,1:nspec)
-  INTEGER(kind=i4b),intent(in) :: NREAC,DUPLICATE(1:nreac)
-  real(kind=dp),intent(in) :: ALPHA(1:nreac),BETA(1:nreac),GAMMA(1:nreac),RTMIN(1:nreac),RTMAX(1:nreac)
-  real(kind=dp), intent(out) :: RATE(1:nreac)
-  INTEGER(kind=i4b),intent(out):: NRGR,NRH2,NRHD,NRCO,NRCI,NRSI
-  CHARACTER(len=10),intent(in) ::  REACTANT(1:nreac,1:3),PRODUCT(1:nreac,1:4)
+  type :: reaction_rate_environment
+    real(kind=dp) :: gas_temperature
+    real(kind=dp) :: dust_temperature
+    real(kind=dp), pointer :: radiation_surface(:) => null()
+    real(kind=dp), pointer :: visual_extinction(:) => null()
+    real(kind=dp), pointer :: column_density(:,:) => null()
+  end type reaction_rate_environment
 
+  type :: reaction_rate_indices
+    integer(kind=i4b) :: grain_surface
+    integer(kind=i4b) :: h2_photodissociation
+    integer(kind=i4b) :: hd_photodissociation
+    integer(kind=i4b) :: co_photodissociation
+    integer(kind=i4b) :: carbon_photoionization
+    integer(kind=i4b) :: silicon_photoionization
+  end type reaction_rate_indices
+
+contains
+
+  subroutine calculate_reaction_rates(environment, network, rate, indices)
+    type(reaction_rate_environment), intent(in) :: environment
+    type(reaction_network), intent(in) :: network
+    real(kind=dp), intent(out) :: rate(:)
+    type(reaction_rate_indices), intent(out) :: indices
+
+  real(kind=dp) :: temperature
+  real(kind=dp) :: dust_temperature
   real(kind=dp) :: PHI_PAH,FLUX,YIELD
-  INTEGER(kind=i4b) :: I,J,K
+  integer(kind=i4b) :: I,J,K
+  integer(kind=i4b) :: nreac
+  integer(kind=i4b) :: ray_index_lower
+  integer(kind=i4b) :: ray_index_upper
+
+  temperature = environment%gas_temperature
+  dust_temperature = environment%dust_temperature
+  nreac = size(rate)
+  ray_index_lower = lbound(environment%radiation_surface,1)
+  ray_index_upper = ubound(environment%radiation_surface,1)
+
+  associate(reactant => network%reactant, product => network%product, alpha => network%alpha, &
+      &beta => network%beta, gamma => network%gamma, rtmin => network%rtmin, rtmax => network%rtmax, &
+      &duplicate => network%duplicate, rad_surface => environment%radiation_surface, &
+      &av => environment%visual_extinction, column => environment%column_density)
 
   !     Initialize the RATE coefficients.
   RATE=0.0D0
@@ -44,12 +63,12 @@ SUBROUTINE CALCULATE_REACTION_RATES(TEMPERATURE,DUST_TEMPERATURE,NRAYS,RAD_SURFA
   !     Initialize the stored reaction numbers. If they are not assigned
   !     subsequently, any attempt to access that reaction will generate an
   !     error and the code will crash. This is a useful bug catch.
-  NRGR=0
-  NRH2=0
-  NRHD=0
-  NRCO=0
-  NRCI=0
-  NRSI=0
+  indices%grain_surface=0
+  indices%h2_photodissociation=0
+  indices%hd_photodissociation=0
+  indices%co_photodissociation=0
+  indices%carbon_photoionization=0
+  indices%silicon_photoionization=0
 
   DO I=1,NREAC
     !        Determine the type of reaction
@@ -83,7 +102,7 @@ SUBROUTINE CALCULATE_REACTION_RATES(TEMPERATURE,DUST_TEMPERATURE,NRAYS,RAD_SURFA
     !            RATE(I)=3.0D-18*SQRT(TEMPERATURE)*EXP(-(TEMPERATURE/1.0D3))
     RATE(I)=3.0D-18*SQRT(TEMPERATURE)
 #endif
-    NRGR=I
+    indices%grain_surface=I
     GOTO 10
   ENDIF
 
@@ -154,10 +173,10 @@ GOTO 10
 !C     is calculated separately by the function H2PDRATE (within shield.f)
 1       IF(REACTANT(I,1).EQ."H2 " .AND. REACTANT(I,3).EQ."   ") THEN
 !C           Loop over all rays
-DO K=0,NRAYS-1
+do k=ray_index_lower,ray_index_upper
   RATE(I)=RATE(I) + H2PDRATE(ALPHA(I),RAD_SURFACE(K),AV(K),COLUMN(K,species_idx%NH2))
 ENDDO
-IF(PRODUCT(I,1).EQ."H " .AND. PRODUCT(I,2).EQ."H ") NRH2=I
+IF(PRODUCT(I,1).EQ."H " .AND. PRODUCT(I,2).EQ."H ") indices%h2_photodissociation=I
 GOTO 10
 ENDIF
 
@@ -165,10 +184,10 @@ ENDIF
 !C     is calculated separately by the function H2PDRATE (within shield.f)
 IF(REACTANT(I,1).EQ."HD " .AND. REACTANT(I,3).EQ."   ") THEN
   !C           Loop over all rays
-  DO K=0,NRAYS-1
+  do k=ray_index_lower,ray_index_upper
     RATE(I)=RATE(I) + H2PDRATE(ALPHA(I),RAD_SURFACE(K),AV(K),COLUMN(K,species_idx%NHD))
   ENDDO
-  IF(ANY(PRODUCT(I,:).EQ."H ") .AND. ANY(PRODUCT(I,:).EQ."D ")) NRHD=I
+  IF(ANY(PRODUCT(I,:).EQ."H ") .AND. ANY(PRODUCT(I,:).EQ."D ")) indices%hd_photodissociation=I
   GOTO 10
 ENDIF
 
@@ -177,10 +196,10 @@ ENDIF
 IF(REACTANT(I,1).EQ."CO " .AND. REACTANT(I,3).EQ."   " .AND. &
     & ANY(PRODUCT(I,:).EQ."C ") .AND. ANY(PRODUCT(I,:).EQ."O ")) THEN
 !C           Loop over all rays
-DO K=0,NRAYS-1
+do k=ray_index_lower,ray_index_upper
   RATE(I)=RATE(I) + COPDRATE(ALPHA(I),RAD_SURFACE(K),AV(K),COLUMN(K,species_idx%NCO),COLUMN(K,species_idx%NH2))
 ENDDO
-NRCO=I
+indices%co_photodissociation=I
 GOTO 10
 
 ENDIF
@@ -191,10 +210,10 @@ IF(REACTANT(I,1).EQ."C  " .AND. REACTANT(I,3).EQ."   " .AND.&
     &    ((PRODUCT(I,1).EQ."C+ " .AND. PRODUCT(I,2).EQ."e- ") .OR.&
     &     (PRODUCT(I,1).EQ."e- " .AND. PRODUCT(I,2).EQ."C+ "))) THEN
 !C           Loop over all rays
-DO K=0,NRAYS-1
+do k=ray_index_lower,ray_index_upper
   RATE(I)=RATE(I) + CIPDRATE(ALPHA(I),RAD_SURFACE(K),AV(K),GAMMA(I),COLUMN(K,species_idx%NC),COLUMN(K,species_idx%NH2),TEMPERATURE)
 ENDDO
-NRCI=I
+indices%carbon_photoionization=I
 GOTO 10
 
 ENDIF
@@ -205,16 +224,16 @@ IF(REACTANT(I,1).EQ."S  " .AND. REACTANT(I,3).EQ."   " .AND.&
     &    ((PRODUCT(I,1).EQ."S+ " .AND. PRODUCT(I,2).EQ."e- ") .OR.&
     &     (PRODUCT(I,1).EQ."e- " .AND. PRODUCT(I,2).EQ."S+ "))) THEN
 !C           Loop over all rays
-DO K=0,NRAYS-1
+do k=ray_index_lower,ray_index_upper
   RATE(I)=RATE(I) + SIPDRATE(ALPHA(I),RAD_SURFACE(K),AV(K),GAMMA(I),COLUMN(K,species_idx%NS))
 ENDDO
-NRSI=I
+indices%silicon_photoionization=I
 GOTO 10
 ENDIF
 
 IF(DUPLICATE(I).EQ.0) THEN
   !C           Loop over all rays
-  DO K=0,NRAYS-1
+  do k=ray_index_lower,ray_index_upper
     RATE(I)=RATE(I) + ALPHA(I)*RAD_SURFACE(K)*EXP(-(GAMMA(I)*AV(K)))/2.0
   ENDDO
 ELSE IF(DUPLICATE(I).EQ.1) THEN
@@ -222,13 +241,13 @@ ELSE IF(DUPLICATE(I).EQ.1) THEN
   DO
     IF(TEMPERATURE.LE.RTMAX(J)) THEN
       !C                 Loop over all rays
-      DO K=0,NRAYS-1
+      do k=ray_index_lower,ray_index_upper
         RATE(J)=RATE(J) + ALPHA(J)*RAD_SURFACE(K)*EXP(-(GAMMA(J)*AV(K)))/2.0
       ENDDO
       EXIT
     ELSE IF(DUPLICATE(J+1).LT.DUPLICATE(J)) THEN
       !C                 Loop over all rays
-      DO K=0,NRAYS-1
+      do k=ray_index_lower,ray_index_upper
         RATE(J)=RATE(J) + ALPHA(J)*RAD_SURFACE(K)*EXP(-(GAMMA(J)*AV(K)))/2.0
       ENDDO
       EXIT
@@ -327,7 +346,7 @@ GOTO 10
 !C         FLUX=1.0D8 ! Flux of FUV photons in the unattenuated Habing field (in photons cm^-2 s^-1)
 FLUX=1.7D8 ! Flux of FUV photons in the unattenuated Draine field (in photons cm^-2 s^-1)
 !C        Loop over all rays
-DO K=0,NRAYS-1
+do k=ray_index_lower,ray_index_upper
   RATE(I)=RATE(I) + FLUX*RAD_SURFACE(K)*EXP(-(1.8D0*AV(K)))*2.4D-22*YIELD
 ENDDO
 GOTO 10
@@ -359,4 +378,7 @@ GOTO 10
 ENDDO
 
 RETURN
-END SUBROUTINE CALCULATE_REACTION_RATES
+end associate
+  end subroutine calculate_reaction_rates
+
+end module reaction_rates_module

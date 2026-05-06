@@ -95,6 +95,7 @@ MODULE_SRC += simulation_grid.F90 ray_path.F90
 MODULE_SRC += coolants.F90 modules.F90
 MODULE_SRC += runtime_state.F90 runtime_config.F90 grid_io.F90 spatial_index.F90 memory.F90
 MODULE_SRC += excitation.F90 convergence.F90 radiation.F90 columns.F90 level_population_system.F90 collision_coefficients.F90
+MODULE_SRC += reaction_rates.F90 heating_rates.F90 escape_probability.F90
 MODULE_SRC += point_reaction_rates.F90 dark_region.F90 iteration_chemistry.F90 level_population_solver.F90
 MODULE_SRC += evolution_setup.F90 thermal_balance.F90 iteration_convergence.F90
 MODULE_SRC += output.F90 read_input.F90 coolant_io.F90 chemistry_io.F90 initial_conditions.F90
@@ -102,10 +103,9 @@ MODULE_SRC += geometry_setup.F90 particle_storage.F90
 
 CODE_F90_SRC += healpix.F90 input_parameters.F90 linear_solver.F90
 CODE_F90_SRC += level_population_diagnostics.F90 read_species.F90
-CODE_F90_SRC += read_rates.F90 heapsort.F90 reaction_rates.F90
+CODE_F90_SRC += read_rates.F90 heapsort.F90
 CODE_F90_SRC += h2_shielding.F90 co_shielding.F90 atomic_photo_rates.F90
-CODE_F90_SRC += spline.F90 escape_probability.F90 evaluation_points.F90
-CODE_F90_SRC += heating_rates.F90
+CODE_F90_SRC += spline.F90 evaluation_points.F90
 ifeq ($(DUST),2)
 CODE_F90_SRC += dust_temperature.F90
 endif
@@ -277,13 +277,16 @@ $(OBJ_DIR)/convergence.o: convergence.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global
 $(OBJ_DIR)/radiation.o: radiation.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/ray_path.o
 $(OBJ_DIR)/columns.o: columns.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/ray_path.o
 $(OBJ_DIR)/collision_coefficients.o: collision_coefficients.F90 $(OBJ_DIR)/definitions.o $(OBJ_DIR)/healpix_types.o $(OBJ_DIR)/coolants.o
-$(OBJ_DIR)/point_reaction_rates.o: point_reaction_rates.F90 $(OBJ_DIR)/modules.o
+$(OBJ_DIR)/reaction_rates.o: reaction_rates.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o $(OBJ_DIR)/photo_rate_interfaces.o $(OBJ_DIR)/reaction_rate_kernels.o $(OBJ_DIR)/chemistry_network.o
+$(OBJ_DIR)/heating_rates.o: heating_rates.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o $(OBJ_DIR)/heating_rate_kernels.o $(OBJ_DIR)/reaction_rates.o
+$(OBJ_DIR)/escape_probability.o: escape_probability.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o $(OBJ_DIR)/coolants.o
+$(OBJ_DIR)/point_reaction_rates.o: point_reaction_rates.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/reaction_rates.o
 $(OBJ_DIR)/dark_region.o: dark_region.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o $(OBJ_DIR)/columns.o $(OBJ_DIR)/convergence.o $(OBJ_DIR)/point_reaction_rates.o
 $(OBJ_DIR)/iteration_chemistry.o: iteration_chemistry.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o $(OBJ_DIR)/columns.o $(OBJ_DIR)/point_reaction_rates.o
 $(OBJ_DIR)/level_population_system.o: level_population_system.F90 $(OBJ_DIR)/definitions.o $(OBJ_DIR)/healpix_types.o
-$(OBJ_DIR)/level_population_solver.o: level_population_solver.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o $(OBJ_DIR)/convergence.o $(OBJ_DIR)/ray_path.o $(OBJ_DIR)/level_population_system.o $(OBJ_DIR)/collision_coefficients.o
+$(OBJ_DIR)/level_population_solver.o: level_population_solver.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o $(OBJ_DIR)/convergence.o $(OBJ_DIR)/ray_path.o $(OBJ_DIR)/level_population_system.o $(OBJ_DIR)/collision_coefficients.o $(OBJ_DIR)/escape_probability.o
 $(OBJ_DIR)/evolution_setup.o: evolution_setup.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o $(OBJ_DIR)/chemistry_controls.o $(OBJ_DIR)/geometry_state.o $(OBJ_DIR)/thermal_state.o $(OBJ_DIR)/columns.o $(OBJ_DIR)/dark_region.o $(OBJ_DIR)/radiation.o $(OBJ_DIR)/iteration_chemistry.o $(OBJ_DIR)/level_population_solver.o
-$(OBJ_DIR)/thermal_balance.o: thermal_balance.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o $(OBJ_DIR)/point_reaction_rates.o
+$(OBJ_DIR)/thermal_balance.o: thermal_balance.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o $(OBJ_DIR)/point_reaction_rates.o $(OBJ_DIR)/heating_rates.o
 $(OBJ_DIR)/iteration_convergence.o: iteration_convergence.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o $(OBJ_DIR)/thermal_state.o $(OBJ_DIR)/convergence.o
 $(OBJ_DIR)/output.o: output.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o
 $(OBJ_DIR)/read_input.o: read_input.F90 $(OBJ_DIR)/healpix_types.o $(OBJ_DIR)/coolants.o
@@ -292,8 +295,6 @@ $(OBJ_DIR)/chemistry_io.o: chemistry_io.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/glob
 $(OBJ_DIR)/initial_conditions.o: initial_conditions.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o
 $(OBJ_DIR)/geometry_setup.o: geometry_setup.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/healpix_state.o $(OBJ_DIR)/geometry_state.o
 $(OBJ_DIR)/particle_storage.o: particle_storage.F90 $(OBJ_DIR)/modules.o
-$(OBJ_DIR)/reaction_rates.o: reaction_rates.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o $(OBJ_DIR)/photo_rate_interfaces.o $(OBJ_DIR)/reaction_rate_kernels.o
-$(OBJ_DIR)/heating_rates.o: heating_rates.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/global_parameters.o $(OBJ_DIR)/heating_rate_kernels.o
 $(OBJ_DIR)/evaluation_points.o: evaluation_points.F90 $(OBJ_DIR)/modules.o $(OBJ_DIR)/healpix.o $(OBJ_DIR)/ray_path.o
 clean:
 	rm -rf $(BUILD_DIR)

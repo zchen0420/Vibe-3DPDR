@@ -1,26 +1,32 @@
+module heating_rates_module
+  use definitions, only : dp
+  use global_module
+  use heating_rate_kernels_module
+  use healpix_types
+  use maincode_module, only : runtime
+  use reaction_rates_module, only : reaction_rate_indices
+  implicit none
 
-!=======================================================================
-!
-!     Calculate the total heating rate at the current grid point.
-!
-!-----------------------------------------------------------------------
-SUBROUTINE calculate_heating_rates(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
-      & UV_FIELD,V_TURB,NSPEC,ABUNDANCE,NREAC,RATE,HEATING_RATE,&
-      & NRGR,NRH2,NRHD,NRCO,NRCI,NRSI)
+  private
+  public :: heating_rate_environment
+  public :: calculate_heating_rates
 
-  USE DEFINITIONS
-  USE HEALPIX_TYPES
-  USE GLOBAL_MODULE
-  USE HEATING_RATE_KERNELS_MODULE
-  USE MAINCODE_MODULE, ONLY : runtime
+  type :: heating_rate_environment
+    real(kind=dp) :: density
+    real(kind=dp) :: gas_temperature
+    real(kind=dp) :: dust_temperature
+    real(kind=dp) :: uv_field
+    real(kind=dp) :: turbulent_velocity
+    real(kind=dp), pointer :: abundance(:) => null()
+    real(kind=dp), pointer :: reaction_rate(:) => null()
+  end type heating_rate_environment
 
-  IMPLICIT NONE
+contains
 
-  INTEGER(KIND=I4B), INTENT(IN) :: NSPEC,NREAC
-  REAL(KIND=DP), INTENT(IN)     :: DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE,UV_FIELD,V_TURB
-  REAL(KIND=DP), INTENT(IN)     :: ABUNDANCE(1:NSPEC),RATE(1:NREAC)
-  INTEGER(KIND=I4B), INTENT(IN) :: NRGR,NRH2,NRHD,NRCO,NRCI,NRSI
-  REAL(KIND=DP), INTENT(OUT)    :: HEATING_RATE(1:12)
+  subroutine calculate_heating_rates(environment, reaction_indices, heating_rate)
+    type(heating_rate_environment), intent(in) :: environment
+    type(reaction_rate_indices), intent(in) :: reaction_indices
+    real(kind=dp), intent(out) :: heating_rate(1:12)
 
   REAL(KIND=DP) :: TOTAL_HEATING,PHOTOELECTRIC_HEATING,PAHPHOTOELEC_HEATING,WEINGARTNER_HEATING, &
       & CIONIZATION_HEATING,H2FORMATION_HEATING,H2PHOTODISS_HEATING,FUVPUMPING_HEATING, &
@@ -44,6 +50,14 @@ SUBROUTINE calculate_heating_rates(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
 
   !!     Soft X-ray heating
   !      REAL(KIND=DP) :: PP1,PP2,F6
+
+  associate(density => environment%density, gas_temperature => environment%gas_temperature, &
+      &dust_temperature => environment%dust_temperature, uv_field => environment%uv_field, &
+      &v_turb => environment%turbulent_velocity, abundance => environment%abundance, &
+      &rate => environment%reaction_rate, nrgr => reaction_indices%grain_surface, &
+      &nrh2 => reaction_indices%h2_photodissociation, nrhd => reaction_indices%hd_photodissociation, &
+      &nrco => reaction_indices%co_photodissociation, nrci => reaction_indices%carbon_photoionization, &
+      &nrsi => reaction_indices%silicon_photoionization)
   !     Convert the FUV field (in Draine units) to the Habing equivalent
   HABING_FIELD=1.68D0*UV_FIELD
 
@@ -147,41 +161,41 @@ SUBROUTINE calculate_heating_rates(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
   !     Carbon photoionization heating
   !
   !     1 eV on average per carbon ionization
-  !     Use the C photoionization rate determined by the CALCULATE_REACTION_RATES subroutine: RATE(NRCI) [units: s^-1]
+  !     Use the C photoionization rate determined by calculate_reaction_rates.
   !-----------------------------------------------------------------------
-  CIONIZATION_HEATING=(1.0*EV)*RATE(NRCI)*ABUNDANCE(species_idx%NC)*DENSITY
+  CIONIZATION_HEATING=(1.0*EV)*rate(nrci)*abundance(species_idx%NC)*density
   !-----------------------------------------------------------------------
   !     H2 formation heating
   !
   !     Assume 1.5 eV liberated as heat during H2 formation
   !     See: Hollenbach & Tielens, Review of Modern Physics, 1999, 71, 173
-  !     Use the rate determined by the CALCULATE_REACTION_RATES subroutine: RATE(NRGR) [units: cm^3.s^-1]
+  !     Use the grain-surface rate determined by calculate_reaction_rates.
   !-----------------------------------------------------------------------
 
-  H2FORMATION_HEATING=(1.5*EV)*RATE(NRGR)*DENSITY*ABUNDANCE(species_idx%NH)*DENSITY
+  H2FORMATION_HEATING=(1.5*EV)*rate(nrgr)*density*abundance(species_idx%NH)*density
 
   !-----------------------------------------------------------------------
   !     H2 photodissociation heating
   !
   !     0.4 eV on average per photodissociated molecule
-  !     Use the rate determined by the CALCULATE_REACTION_RATES subroutine: RATE(NRH2) [units: s^-1]
+  !     Use the H2 photodissociation rate determined by calculate_reaction_rates.
   !-----------------------------------------------------------------------
 
-  H2PHOTODISS_HEATING=(0.4*EV)*RATE(NRH2)*ABUNDANCE(species_idx%NH2)*DENSITY
+  H2PHOTODISS_HEATING=(0.4*EV)*rate(nrh2)*abundance(species_idx%NH2)*density
 
   !-----------------------------------------------------------------------
   !     H2 FUV pumping heating
   !
   !     2.2 eV on average per vibrationally excited H2* molecule
   !     See: Hollenbach & McKee (1979)
-  !     Use the H2 photodissociation rate determined by CALCULATE_REACTION_RATES: RATE(NRH2) [units: s^-1]
+  !     Use the H2 photodissociation rate determined by calculate_reaction_rates.
   !     Use the H2 critical density calculation from Hollenbach & McKee (1979)
   !-----------------------------------------------------------------------
 
   NCR_H2=1.0D6/SQRT(GAS_TEMPERATURE)/(1.6D0*ABUNDANCE(species_idx%NH)*EXP(-((400.0D0/GAS_TEMPERATURE)**2)) &
       & + 1.4D0*ABUNDANCE(species_idx%NH2)*EXP(-(18100.0D0/(GAS_TEMPERATURE+1200.0D0))))
 
-  FUVPUMPING_HEATING=(2.2*EV)*9.0D0*RATE(NRH2)*ABUNDANCE(species_idx%NH2)*DENSITY/(1.0D0+NCR_H2/DENSITY)
+  FUVPUMPING_HEATING=(2.2*EV)*9.0D0*rate(nrh2)*abundance(species_idx%NH2)*density/(1.0D0+NCR_H2/density)
 
   !-----------------------------------------------------------------------
   !     Cosmic-ray ionization heating
@@ -326,6 +340,8 @@ SUBROUTINE calculate_heating_rates(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
 
   !-----------------------------------------------------------------------
 
+  end associate
+
 CONTAINS ! Dust photoelectric heating functions...
 
   !=======================================================================
@@ -364,5 +380,7 @@ CONTAINS ! Dust photoelectric heating functions...
   END FUNCTION FF
   !-----------------------------------------------------------------------
 
-END SUBROUTINE calculate_heating_rates
-!=======================================================================
+  end subroutine calculate_heating_rates
+  !=======================================================================
+
+end module heating_rates_module
