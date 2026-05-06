@@ -16,7 +16,7 @@ contains
     environment%gas_temperature = thermal%gas_temperature(point_index)
     environment%dust_temperature = thermal%dust_temperature(point_index)
     environment%radiation_surface => grid%points(point_id)%rad_surface
-    environment%visual_extinction => grid%points(point_id)%AV
+    environment%visual_extinction => grid%points(point_id)%av
     environment%column_density => geometry%column_density(point_index)%columndens_point
 
     call calculate_reaction_rates(environment, chemistry%network, chemistry%rate, local_indices)

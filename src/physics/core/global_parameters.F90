@@ -1,18 +1,18 @@
 module global_module
 
-  USE ISO_C_BINDING
+  use iso_c_binding
   use definitions
   use healpix_types
   use species_indices_module, only : species_index_map, allocate_species_index_map
 
   type(species_index_map) :: species_idx
-  integer(kind=i4b),bind(c,name='global_module_mp_nelect_')::NELECT
+  integer(kind=i4b),bind(c,name='global_module_mp_nelect_')::nelect
 
   ! REAL(kind=dp), save :: ZETA=3.85D0,OMEGA=0.42D0,GRAIN_RADIUS=1.0D-5,METALLICITY=1.0D0
-  REAL(kind=dp) :: g2d
-  REAL(kind=dp) :: metallicity
-  REAL(kind=dp) :: omega
-  REAL(kind=dp) :: grain_radius
+  real(kind=dp) :: g2d
+  real(kind=dp) :: metallicity
+  real(kind=dp) :: omega
+  real(kind=dp) :: grain_radius
   ! REAL(kind=dp), save :: OMEGA=0.42D0,GRAIN_RADIUS=1.0D-7,METALLICITY=1.0D0
   ! REAL(kind=dp), save :: ZETA=1.0D0,OMEGA=0.42D0,GRAIN_RADIUS=1.0D-5,METALLICITY=1.0D0
 

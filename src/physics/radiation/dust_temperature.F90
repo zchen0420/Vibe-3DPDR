@@ -41,58 +41,58 @@
 !  with distance and maintain a larger warm dust region (~50-100 K).
 !
 !-----------------------------------------------------------------------
-SUBROUTINE CALCULATE_DUST_TEMPERATURES
+subroutine calculate_dust_temperatures
 
-  USE HEALPIX_TYPES
-  USE MAINCODE_MODULE
+  use healpix_types
+  use maincode_module
 
-  IMPLICIT NONE
+  implicit none
 
-  INTEGER(KIND=I4B) :: J, point_id, point_index
+  integer(kind=i4b) :: j, point_id, point_index
 
-  REAL(KIND=DP) :: NU_0,R_0,T_0,TAU_100
-  REAL(KIND=DP) :: T_CMB
+  real(kind=dp) :: nu_0,r_0,t_0,tau_100
+  real(kind=dp) :: t_cmb
 
   !  Parameters used in the HHT equations (see their paper for details)
-  NU_0=2.65D15
-  TAU_100=1.0D-3
-  R_0=1.0D0/runtime%av_scale
-  T_CMB=2.73D0
+  nu_0=2.65d15
+  tau_100=1.0d-3
+  r_0=1.0d0/runtime%av_scale
+  t_cmb=2.73d0
 
-  DO point_index=1,pdr_ptot ! Loop over particles
+  do point_index=1,pdr_ptot ! Loop over particles
     point_id=grid%pdr_ids(point_index)
     !     Calculate the contribution to the dust temperature from the local FUV flux and the CMB background
-    grid%points(point_id)%dust_temperature=8.9D-11*NU_0*(1.71D0*grid%points(point_id)%UVfield)+T_CMB**5
+    grid%points(point_id)%dust_temperature=8.9d-11*nu_0*(1.71d0*grid%points(point_id)%uvfield)+t_cmb**5
 
-    DO J=0,NRAYS-1 ! Loop over rays
+    do j=0,nrays-1 ! Loop over rays
 
       !        The minimum dust temperature is related to the incident FUV flux along each ray
       !        Convert the incident FUV flux from Draine to Habing units by multiplying by 1.7
-      T_0=12.2*(1.71D0*grid%points(point_id)%RAD_SURFACE(J))**0.2
+      t_0=12.2*(1.71d0*grid%points(point_id)%rad_surface(j))**0.2
 
       !        Add the contribution to the dust temperature from the FUV flux incident along this ray
-      IF(T_0.GT.0) grid%points(point_id)%dust_temperature=grid%points(point_id)%dust_temperature &
-          & + (0.42-LOG(3.45D-2*TAU_100*T_0))*(3.45D-2*TAU_100*T_0)*T_0**5
+      if(t_0.gt.0) grid%points(point_id)%dust_temperature=grid%points(point_id)%dust_temperature &
+          & + (0.42-log(3.45d-2*tau_100*t_0))*(3.45d-2*tau_100*t_0)*t_0**5
 
-    END DO ! End of loop over rays
+    end do ! End of loop over rays
 
     !     Convert from total dust emission intensity to dust temperature
     grid%points(point_id)%dust_temperature=grid%points(point_id)%dust_temperature**0.2
 
     !     Impose a lower limit on the dust temperature, since values below 10 K can dramatically
     !     limit the rate of H2 formation on grains (the molecule cannot desorb from the surface)
-    IF(grid%points(point_id)%dust_temperature.LT.10.0D0) THEN
-      grid%points(point_id)%dust_temperature=10.0D0
-    END IF
+    if(grid%points(point_id)%dust_temperature.lt.10.0d0) then
+      grid%points(point_id)%dust_temperature=10.0d0
+    end if
 
     !     Check that the dust temperature is physical
-    IF(grid%points(point_id)%dust_temperature.GT.1000) THEN
-      WRITE(6,*) 'ERROR! Calculated dust temperature exceeds 1000 K'
-      STOP
-    END IF
+    if(grid%points(point_id)%dust_temperature.gt.1000) then
+      write(6,*) 'ERROR! Calculated dust temperature exceeds 1000 K'
+      stop
+    end if
 
-  END DO ! End of loop over particles
+  end do ! End of loop over particles
 
-  RETURN
-END SUBROUTINE CALCULATE_DUST_TEMPERATURES
+  return
+end subroutine calculate_dust_temperatures
 !=======================================================================

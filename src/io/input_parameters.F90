@@ -1,4 +1,4 @@
-MODULE run_config_module
+module run_config_module
 
   use definitions
   implicit none
@@ -20,19 +20,19 @@ MODULE run_config_module
     real(kind=dp) :: metallicity
     real(kind=dp) :: omega
     real(kind=dp) :: grain_radius
-    character(len=128) :: C12Oinput
-    character(len=128) :: CIIinput
-    character(len=128) :: CIinput
-    character(len=128) :: OIinput
-    real(kind=dp) :: Tguess
-    real(kind=dp) :: Tlow0
-    real(kind=dp) :: Thigh0
-    real(kind=dp) :: Tmin
-    real(kind=dp) :: Tmax
-    real(kind=dp) :: Fcrit
-    real(kind=dp) :: Tdiff
+    character(len=128) :: c12oinput
+    character(len=128) :: ciiinput
+    character(len=128) :: ciinput
+    character(len=128) :: oiinput
+    real(kind=dp) :: tguess
+    real(kind=dp) :: tlow0
+    real(kind=dp) :: thigh0
+    real(kind=dp) :: tmin
+    real(kind=dp) :: tmax
+    real(kind=dp) :: fcrit
+    real(kind=dp) :: tdiff
     character(len=3) :: fieldchoice
-    real(kind=dp) :: Gext(1)
+    real(kind=dp) :: gext(1)
   end type run_config
 
 contains
@@ -63,23 +63,23 @@ contains
     read(params_unit,*) config%grain_radius
 
     call skip_lines(params_unit, 3)
-    read(params_unit,*) config%C12Oinput
-    read(params_unit,*) config%CIIinput
-    read(params_unit,*) config%CIinput
-    read(params_unit,*) config%OIinput
+    read(params_unit,*) config%c12oinput
+    read(params_unit,*) config%ciiinput
+    read(params_unit,*) config%ciinput
+    read(params_unit,*) config%oiinput
 
     call skip_lines(params_unit, 3)
-    read(params_unit,*) config%Tguess
-    read(params_unit,*) config%Tlow0
-    read(params_unit,*) config%Thigh0
-    read(params_unit,*) config%Tmin
-    read(params_unit,*) config%Tmax
-    read(params_unit,*) config%Fcrit
-    read(params_unit,*) config%Tdiff
+    read(params_unit,*) config%tguess
+    read(params_unit,*) config%tlow0
+    read(params_unit,*) config%thigh0
+    read(params_unit,*) config%tmin
+    read(params_unit,*) config%tmax
+    read(params_unit,*) config%fcrit
+    read(params_unit,*) config%tdiff
 
     call skip_lines(params_unit, 3)
     read(params_unit,*) config%fieldchoice
-    read(params_unit,*) config%Gext
+    read(params_unit,*) config%gext
 
     close(params_unit)
   end subroutine read_run_config
@@ -91,39 +91,39 @@ contains
 
     do line = 1, nlines
       read(unit,*)
-    enddo
+    end do
   end subroutine skip_lines
 
   integer function count_data_records(data_file)
-    character(len=*), intent(in) :: data_file
-    integer, parameter :: data_unit = 91
-    integer :: ios
-    real(kind=dp) :: dummy
+  character(len=*), intent(in) :: data_file
+  integer, parameter :: data_unit = 91
+  integer :: ios
+  real(kind=dp) :: dummy
 
-    count_data_records = 0
-    open(unit=data_unit, file=data_file, status='old', action='read')
-    do
-      read(data_unit,*,iostat=ios) dummy
-      if (ios /= 0) exit
-      count_data_records = count_data_records + 1
-    enddo
-    close(data_unit)
-  end function count_data_records
+  count_data_records = 0
+  open(unit=data_unit, file=data_file, status='old', action='read')
+  do
+    read(data_unit,*,iostat=ios) dummy
+    if (ios /= 0) exit
+    count_data_records = count_data_records + 1
+  end do
+  close(data_unit)
+end function count_data_records
 
-END MODULE run_config_module
+end module run_config_module
 
 
-SUBROUTINE readparams(config_file)
+subroutine readparams(config_file)
 
   !T.Bisbas, T.Bell
   use definitions
   use healpix_types
   use run_config_module
-  use coolants_module, only : COOLANT_COUNT, COOLANT_C12O, COOLANT_CII, COOLANT_CI, COOLANT_OI, &
+  use coolants_module, only : coolant_count, coolant_c12o, coolant_cii, coolant_ci, coolant_oi, &
       &coolant_default_nlevels, coolant_default_ntemps
   use maincode_module, only : runtime, level, theta_crit, rho_min, rho_max,&
-      & fieldchoice, Gext, nspec, nreac, maxpoints, &
-      & Tlow0, Thigh0, Tmin, Tmax, Fcrit, Tdiff, dust_temperature,&
+      & fieldchoice, gext, nspec, nreac, maxpoints, &
+      & tlow0, thigh0, tmin, tmax, fcrit, tdiff, dust_temperature,&
       & end_time, coolant
   use global_module, only : g2d, metallicity, omega, grain_radius
   implicit none
@@ -150,23 +150,23 @@ SUBROUTINE readparams(config_file)
   metallicity = config%metallicity
   omega = config%omega
   grain_radius = config%grain_radius
-  if (.not.allocated(coolant)) allocate(coolant(1:COOLANT_COUNT))
-  coolant(COOLANT_C12O)%input_file = config%C12Oinput
-  coolant(COOLANT_CII)%input_file = config%CIIinput
-  coolant(COOLANT_CI)%input_file = config%CIinput
-  coolant(COOLANT_OI)%input_file = config%OIinput
-  runtime%temperature_guess = config%Tguess
-  Tlow0 = config%Tlow0
-  Thigh0 = config%Thigh0
-  Tmin = config%Tmin
-  Tmax = config%Tmax
-  Fcrit = config%Fcrit
-  Tdiff = config%Tdiff
+  if (.not.allocated(coolant)) allocate(coolant(1:coolant_count))
+  coolant(coolant_c12o)%input_file = config%c12oinput
+  coolant(coolant_cii)%input_file = config%ciiinput
+  coolant(coolant_ci)%input_file = config%ciinput
+  coolant(coolant_oi)%input_file = config%oiinput
+  runtime%temperature_guess = config%tguess
+  tlow0 = config%tlow0
+  thigh0 = config%thigh0
+  tmin = config%tmin
+  tmax = config%tmax
+  fcrit = config%fcrit
+  tdiff = config%tdiff
   fieldchoice = config%fieldchoice
-  Gext = config%Gext
+  gext = config%gext
 
   maxpoints = 600
-  runtime%av_scale = 6.289E-22*metallicity
+  runtime%av_scale = 6.289e-22*metallicity
   runtime%uv_scale = 3.02
 
 #ifdef REDUCED
@@ -184,10 +184,10 @@ SUBROUTINE readparams(config_file)
   nreac = count_data_records('data/rates_mynetwork.d')
 #endif
 
-  do coolant_id = 1, COOLANT_COUNT
+  do coolant_id = 1, coolant_count
     coolant(coolant_id)%nlevels = coolant_default_nlevels(coolant_id)
     coolant(coolant_id)%ntemperatures = coolant_default_ntemps(coolant_id)
-  enddo
+  end do
 
   return
-END SUBROUTINE readparams
+end subroutine readparams

@@ -1,5 +1,5 @@
 module chemistry_module
-  USE ISO_C_BINDING
+  use iso_c_binding
   use healpix_types
 
   real(kind=dp),bind(c,name='chemistry_module_mp_relative_abundance_tolerance_') :: relative_abundance_tolerance

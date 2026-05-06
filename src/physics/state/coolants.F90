@@ -3,24 +3,24 @@ module coolants_module
   use healpix_types, only : i4b
   implicit none
 
-  integer(kind=i4b), parameter :: COOLANT_COUNT = 4
-  integer(kind=i4b), parameter :: COOLANT_CII = 1
-  integer(kind=i4b), parameter :: COOLANT_CI = 2
-  integer(kind=i4b), parameter :: COOLANT_OI = 3
-  integer(kind=i4b), parameter :: COOLANT_C12O = 4
-  integer(kind=i4b), parameter :: COLLISION_PARTNER_COUNT = 7
-  integer(kind=i4b), parameter :: COLLIDER_H2 = 1
-  integer(kind=i4b), parameter :: COLLIDER_PARA_H2 = 2
-  integer(kind=i4b), parameter :: COLLIDER_ORTHO_H2 = 3
-  integer(kind=i4b), parameter :: COLLIDER_ELECTRON = 4
-  integer(kind=i4b), parameter :: COLLIDER_H = 5
-  integer(kind=i4b), parameter :: COLLIDER_HE = 6
-  integer(kind=i4b), parameter :: COLLIDER_PROTON = 7
+  integer(kind=i4b), parameter :: coolant_count = 4
+  integer(kind=i4b), parameter :: coolant_cii = 1
+  integer(kind=i4b), parameter :: coolant_ci = 2
+  integer(kind=i4b), parameter :: coolant_oi = 3
+  integer(kind=i4b), parameter :: coolant_c12o = 4
+  integer(kind=i4b), parameter :: collision_partner_count = 7
+  integer(kind=i4b), parameter :: collider_h2 = 1
+  integer(kind=i4b), parameter :: collider_para_h2 = 2
+  integer(kind=i4b), parameter :: collider_ortho_h2 = 3
+  integer(kind=i4b), parameter :: collider_electron = 4
+  integer(kind=i4b), parameter :: collider_h = 5
+  integer(kind=i4b), parameter :: collider_he = 6
+  integer(kind=i4b), parameter :: collider_proton = 7
 
-  character(len=4), parameter :: COOLANT_LABELS(COOLANT_COUNT) = (/&
+  character(len=4), parameter :: coolant_labels(coolant_count) = (/&
       &'CII ', 'CI  ', 'OI  ', 'CO  '/)
-  integer(kind=i4b), parameter :: COOLANT_DEFAULT_NLEVELS_TABLE(COOLANT_COUNT) = (/5, 5, 5, 41/)
-  integer(kind=i4b), parameter :: COOLANT_DEFAULT_NTEMPS_TABLE(COOLANT_COUNT) = (/18, 29, 27, 25/)
+  integer(kind=i4b), parameter :: coolant_default_nlevels_table(coolant_count) = (/5, 5, 5, 41/)
+  integer(kind=i4b), parameter :: coolant_default_ntemps_table(coolant_count) = (/18, 29, 27, 25/)
 
   type :: coolant_data
     character(len=128) :: input_file
@@ -54,32 +54,32 @@ contains
     integer(kind=i4b), intent(in) :: coolant_id
     character(len=4) :: label
 
-    if (coolant_id.lt.1 .or. coolant_id.gt.COOLANT_COUNT) then
+    if (coolant_id.lt.1 .or. coolant_id.gt.coolant_count) then
       stop 'Invalid coolant id'
-    endif
-    label = COOLANT_LABELS(coolant_id)
+    end if
+    label = coolant_labels(coolant_id)
   end function coolant_label
 
   integer(kind=i4b) function coolant_default_nlevels(coolant_id)
-    integer(kind=i4b), intent(in) :: coolant_id
+  integer(kind=i4b), intent(in) :: coolant_id
 
-    call assert_valid_coolant(coolant_id)
-    coolant_default_nlevels = COOLANT_DEFAULT_NLEVELS_TABLE(coolant_id)
-  end function coolant_default_nlevels
+  call assert_valid_coolant(coolant_id)
+  coolant_default_nlevels = coolant_default_nlevels_table(coolant_id)
+end function coolant_default_nlevels
 
-  integer(kind=i4b) function coolant_default_ntemps(coolant_id)
-    integer(kind=i4b), intent(in) :: coolant_id
+integer(kind=i4b) function coolant_default_ntemps(coolant_id)
+integer(kind=i4b), intent(in) :: coolant_id
 
-    call assert_valid_coolant(coolant_id)
-    coolant_default_ntemps = COOLANT_DEFAULT_NTEMPS_TABLE(coolant_id)
-  end function coolant_default_ntemps
+call assert_valid_coolant(coolant_id)
+coolant_default_ntemps = coolant_default_ntemps_table(coolant_id)
+end function coolant_default_ntemps
 
-  subroutine assert_valid_coolant(coolant_id)
-    integer(kind=i4b), intent(in) :: coolant_id
+subroutine assert_valid_coolant(coolant_id)
+  integer(kind=i4b), intent(in) :: coolant_id
 
-    if (coolant_id.lt.1 .or. coolant_id.gt.COOLANT_COUNT) then
-      stop 'Invalid coolant id'
-    endif
-  end subroutine assert_valid_coolant
+  if (coolant_id.lt.1 .or. coolant_id.gt.coolant_count) then
+    stop 'Invalid coolant id'
+  end if
+end subroutine assert_valid_coolant
 
 end module coolants_module

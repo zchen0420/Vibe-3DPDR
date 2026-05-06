@@ -1,143 +1,143 @@
-  SUBROUTINE GAUSS_JORDAN_writes(A,N,NP,B,ill)
+subroutine gauss_jordan_writes(a,n,np,b,ill)
 
-    use definitions
-    use healpix_types
-    use maincode_module, only : thermal
+  use definitions
+  use healpix_types
+  use maincode_module, only : thermal
 
-    IMPLICIT NONE
-    integer(kind=i4b), intent(in) :: ill!,coolant
-    INTEGER(kind=i4b):: I,J,K,L,LL,IROW,ICOL
-    INTEGER(kind=i4b), intent(in):: N,NP!,M,MPP
-    integer(kind=i4b), PARAMETER :: NMAX=100
-    INTEGER(kind=i4b):: IPIV(1:NMAX),INDXR(1:NMAX),INDXC(1:NMAX)
-    real(kind=dp), intent(inout) :: A(1:NP,1:NP)
-    real(kind=dp), intent(inout) :: B(1:NP)!,1:MPP)
-    real(kind=dp) :: BIG,DUM,PIVINV
-    integer(kind=i4b) :: diagnostic_point
+  implicit none
+  integer(kind=i4b), intent(in) :: ill !,coolant
+  integer(kind=i4b):: i,j,k,l,ll,irow,icol
+  integer(kind=i4b), intent(in):: n,np !,M,MPP
+  integer(kind=i4b), parameter :: nmax=100
+  integer(kind=i4b):: ipiv(1:nmax),indxr(1:nmax),indxc(1:nmax)
+  real(kind=dp), intent(inout) :: a(1:np,1:np)
+  real(kind=dp), intent(inout) :: b(1:np) !,1:MPP)
+  real(kind=dp) :: big,dum,pivinv
+  integer(kind=i4b) :: diagnostic_point
 
-    diagnostic_point = 1
+  diagnostic_point = 1
 
-    write(6,*) 'b'
-    do i=1,np
-      write(6,*) b(i),i
-    enddo
+  write(6,*) 'b'
+  do i=1,np
+    write(6,*) b(i),i
+  end do
 
-    write(6,*) 'a'
-    do i=1,np
-      do j=1,np
-        write(6,*) a(i,j)
-      enddo
-    enddo
+  write(6,*) 'a'
+  do i=1,np
+    do j=1,np
+      write(6,*) a(i,j)
+    end do
+  end do
 
 
-    ICOL=0
-    IROW=0
-    IPIV=0
-    DO I=1,N
-      BIG=0.0D0
-      DO J=1,N
-        IF(IPIV(J).NE.1) THEN
-          DO K=1,N
-            IF(IPIV(K).EQ.0) THEN
-              IF(ABS(A(J,K)).GE.BIG) THEN
-                BIG=ABS(A(J,K))
-                IROW=J
-                ICOL=K
-              ENDIF !ABS(A
-            ELSE IF(IPIV(K).GT.1) THEN
-              PRINT *,'ERROR! Singular matrix in GAUSS_JORDAN'
-              write(6,*) 'Crashed in first loop'
-              !                     write(6,*) 'grid point = ',p, ' coolant = ',coolant
-              write(6,*) 'thermal%gas_temperature = ',thermal%gas_temperature(diagnostic_point)
-              STOP
-            ENDIF !IPIV(K).EQ.0
-          ENDDO !K=1,N
-        ENDIF !IPIV(J).NE.1
-      ENDDO !J=1,N
-      IPIV(ICOL)=IPIV(ICOL)+1
-      IF(IROW.NE.ICOL) THEN
-        DO L=1,N
-          DUM=A(IROW,L)
-          A(IROW,L)=A(ICOL,L)
-          A(ICOL,L)=DUM
-        ENDDO !L=1,N
-        !            DO L=1,M
-        !               DUM=B(IROW,L)
-        !               B(IROW,L)=B(ICOL,L)
-        !               B(ICOL,L)=DUM
-        !            ENDDO
-        !================================
-        DUM=B(IROW)
-        if (i.eq.ill) write(6,*) 'dum=',dum,'A'
-        !write(6,*) 'DUM=',DUM
-        B(IROW)=B(ICOL)
-        if (i.eq.ill) write(6,*) 'b(',irow,')=',b(irow),'B'
-        !write(6,*) 'irow=',irow
-        !write(6,*) 'B(irow)=',b(irow)
-        B(ICOL)=DUM
-        if (i.eq.ill) write(6,*) 'b(',icol,')=',b(icol),'C'
-        !write(6,*) 'icol=',icol
-        !write(6,*) 'b(icol)=',b(icol)
-        !================================
-      ENDIF !IROW.NE.ICOL
-      INDXR(I)=IROW
-      INDXC(I)=ICOL
-      IF(A(ICOL,ICOL).EQ.0.0D0) THEN
-        PRINT *,'ERROR! Singular matrix found by GAUSS_JORDAN'
-        write(6,*) 'Crashed in second loop'
-        !            write(6,*) 'grid point = ',p, ' coolant = ',coolant
-        write(6,*) 'thermal%gas_temperature = ',thermal%gas_temperature(diagnostic_point)
-        STOP
-      ENDIF
-      PIVINV=1.0D0/A(ICOL,ICOL)
-      A(ICOL,ICOL)=1.0D0
-      DO L=1,N
-        A(ICOL,L)=A(ICOL,L)*PIVINV
-      ENDDO
-      !         DO L=1,M
-      !            B(ICOL,L)=B(ICOL,L)*PIVINV
-      !         ENDDO
-      !=======================================
-      if (i.eq.ill) write(6,*) b(icol),pivinv,'D'
-      B(ICOL)=B(ICOL)*PIVINV
-      if (i.eq.ill) write(6,*) b(icol),'E'
-      !write(6,*) 'pivinv=',pivinv
+  icol=0
+  irow=0
+  ipiv=0
+  do i=1,n
+    big=0.0d0
+    do j=1,n
+      if(ipiv(j).ne.1) then
+        do k=1,n
+          if(ipiv(k).eq.0) then
+            if(abs(a(j,k)).ge.big) then
+              big=abs(a(j,k))
+              irow=j
+              icol=k
+            end if !ABS(A
+          else if(ipiv(k).gt.1) then
+            print *,'ERROR! Singular matrix in GAUSS_JORDAN'
+            write(6,*) 'Crashed in first loop'
+            !                     write(6,*) 'grid point = ',p, ' coolant = ',coolant
+            write(6,*) 'thermal%gas_temperature = ',thermal%gas_temperature(diagnostic_point)
+            stop
+          end if !IPIV(K).EQ.0
+        end do !K=1,N
+      end if !IPIV(J).NE.1
+    end do !J=1,N
+    ipiv(icol)=ipiv(icol)+1
+    if(irow.ne.icol) then
+      do l=1,n
+        dum=a(irow,l)
+        a(irow,l)=a(icol,l)
+        a(icol,l)=dum
+      end do !L=1,N
+      !            DO L=1,M
+      !               DUM=B(IROW,L)
+      !               B(IROW,L)=B(ICOL,L)
+      !               B(ICOL,L)=DUM
+      !            ENDDO
+      !================================
+      dum=b(irow)
+      if (i.eq.ill) write(6,*) 'dum=',dum,'A'
+      !write(6,*) 'DUM=',DUM
+      b(irow)=b(icol)
+      if (i.eq.ill) write(6,*) 'b(',irow,')=',b(irow),'B'
+      !write(6,*) 'irow=',irow
+      !write(6,*) 'B(irow)=',b(irow)
+      b(icol)=dum
+      if (i.eq.ill) write(6,*) 'b(',icol,')=',b(icol),'C'
+      !write(6,*) 'icol=',icol
       !write(6,*) 'b(icol)=',b(icol)
-      !=======================================
-      DO LL=1,N
-        IF(LL.NE.ICOL) THEN
-          DUM=A(LL,ICOL)
-          A(LL,ICOL)=0.0D0
-          DO L=1,N
-            A(LL,L)=A(LL,L)-A(ICOL,L)*DUM
-          ENDDO
-          !               DO L=1,M
-          !                  B(LL,L)=B(LL,L)-B(ICOL,L)*DUM
-          !               ENDDO
-          !=============================================
-          if (i.eq.ill) then
-            write(6,*) 'll=',ll,'F'
-            write(6,*) 'b(ll)=',b(ll),'G'
-            write(6,*) 'b(icol)=',b(icol),'H'
-            write(6,*) 'dum=',dum,'I'
-          endif
-          B(LL)=B(LL)-B(ICOL)*DUM
-          if (i.eq.ill) write(6,*) 'b(ll) after=',b(ll),'J'
-          !=============================================
-        ENDIF !LL.NE.ICOL
-      ENDDO !LL=1,N
-    ENDDO ! I=1,N
-    DO L=N,1,-1
-      IF(INDXR(L).NE.INDXC(L)) THEN
-        DO K=1,N
-          DUM=A(K,INDXR(L))
-          A(K,INDXR(L))=A(K,INDXC(L))
-          A(K,INDXC(L))=DUM
-        ENDDO !K=1,N
-      ENDIF !INDXR(L).NE.INDXC(L)
-    ENDDO !L=N,1,-1
-    do i=1,n
-      write(6,*) b(i),i
-    enddo
-    RETURN
-  END subroutine
+      !================================
+    end if !IROW.NE.ICOL
+    indxr(i)=irow
+    indxc(i)=icol
+    if(a(icol,icol).eq.0.0d0) then
+      print *,'ERROR! Singular matrix found by GAUSS_JORDAN'
+      write(6,*) 'Crashed in second loop'
+      !            write(6,*) 'grid point = ',p, ' coolant = ',coolant
+      write(6,*) 'thermal%gas_temperature = ',thermal%gas_temperature(diagnostic_point)
+      stop
+    end if
+    pivinv=1.0d0/a(icol,icol)
+    a(icol,icol)=1.0d0
+    do l=1,n
+      a(icol,l)=a(icol,l)*pivinv
+    end do
+    !         DO L=1,M
+    !            B(ICOL,L)=B(ICOL,L)*PIVINV
+    !         ENDDO
+    !=======================================
+    if (i.eq.ill) write(6,*) b(icol),pivinv,'D'
+    b(icol)=b(icol)*pivinv
+    if (i.eq.ill) write(6,*) b(icol),'E'
+    !write(6,*) 'pivinv=',pivinv
+    !write(6,*) 'b(icol)=',b(icol)
+    !=======================================
+    do ll=1,n
+      if(ll.ne.icol) then
+        dum=a(ll,icol)
+        a(ll,icol)=0.0d0
+        do l=1,n
+          a(ll,l)=a(ll,l)-a(icol,l)*dum
+        end do
+        !               DO L=1,M
+        !                  B(LL,L)=B(LL,L)-B(ICOL,L)*DUM
+        !               ENDDO
+        !=============================================
+        if (i.eq.ill) then
+          write(6,*) 'll=',ll,'F'
+          write(6,*) 'b(ll)=',b(ll),'G'
+          write(6,*) 'b(icol)=',b(icol),'H'
+          write(6,*) 'dum=',dum,'I'
+        end if
+        b(ll)=b(ll)-b(icol)*dum
+        if (i.eq.ill) write(6,*) 'b(ll) after=',b(ll),'J'
+        !=============================================
+      end if !LL.NE.ICOL
+    end do !LL=1,N
+  end do ! I=1,N
+  do l=n,1,-1
+    if(indxr(l).ne.indxc(l)) then
+      do k=1,n
+        dum=a(k,indxr(l))
+        a(k,indxr(l))=a(k,indxc(l))
+        a(k,indxc(l))=dum
+      end do !K=1,N
+    end if !INDXR(L).NE.INDXC(L)
+  end do !L=N,1,-1
+  do i=1,n
+    write(6,*) b(i),i
+  end do
+  return
+end subroutine

@@ -10,11 +10,11 @@ module simulation_grid_module
     integer(kind=i4b), pointer :: raytype(:) => null()
     real(kind=dp), pointer :: epoint(:,:,:) => null()
     real(kind=dp), pointer :: columndensity(:) => null()
-    real(kind=dp), pointer :: AV(:) => null()
+    real(kind=dp), pointer :: av(:) => null()
     real(kind=dp), pointer :: rad_surface(:) => null()
     real(kind=dp), pointer :: abundance(:) => null()
     type(point_coolant_state), allocatable :: coolant_state(:)
-    real(kind=dp) :: UVfield
+    real(kind=dp) :: uvfield
     real(kind=dp) :: rho
     real(kind=dp) :: position(1:3)
     integer(kind=i4b) :: etype

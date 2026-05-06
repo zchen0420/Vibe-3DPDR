@@ -5,75 +5,75 @@
 !  Cazaux & Tielens (2004, ApJ, 604, 222).
 !
 !-----------------------------------------------------------------------
-FUNCTION H2_FORMATION_RATE(GAS_TEMPERATURE,GRAIN_TEMPERATURE) RESULT(RATE)
+function h2_formation_rate(gas_temperature,grain_temperature) result(rate)
 
-  USE DEFINITIONS
-  USE HEALPIX_TYPES
-  USE GLOBAL_MODULE, ONLY: metallicity, g2d
-  IMPLICIT NONE
+  use definitions
+  use healpix_types
+  use global_module, only: metallicity, g2d
+  implicit none
 
-  REAL(KIND=DP) :: RATE
-  REAL(KIND=DP), INTENT(IN) :: GAS_TEMPERATURE,GRAIN_TEMPERATURE
+  real(kind=dp) :: rate
+  real(kind=dp), intent(in) :: gas_temperature,grain_temperature
 
-  REAL(KIND=DP) :: THERMAL_VELOCITY,STICKING_COEFFICIENT,TOTAL_CROSS_SECTION
-  REAL(KIND=DP) :: FLUX,FACTOR1,FACTOR2,EPSILON
-  REAL(KIND=DP) :: SILICATE_FORMATION_EFFICIENCY,GRAPHITE_FORMATION_EFFICIENCY
-  REAL(KIND=DP) :: SILICATE_CROSS_SECTION,SILICATE_MU,SILICATE_E_S,SILICATE_E_H2
-  REAL(KIND=DP) :: SILICATE_E_HP,SILICATE_E_HC,SILICATE_NU_H2,SILICATE_NU_HC
-  REAL(KIND=DP) :: GRAPHITE_CROSS_SECTION,GRAPHITE_MU,GRAPHITE_E_S,GRAPHITE_E_H2
-  REAL(KIND=DP) :: GRAPHITE_E_HP,GRAPHITE_E_HC,GRAPHITE_NU_H2,GRAPHITE_NU_HC
+  real(kind=dp) :: thermal_velocity,sticking_coefficient,total_cross_section
+  real(kind=dp) :: flux,factor1,factor2,epsilon
+  real(kind=dp) :: silicate_formation_efficiency,graphite_formation_efficiency
+  real(kind=dp) :: silicate_cross_section,silicate_mu,silicate_e_s,silicate_e_h2
+  real(kind=dp) :: silicate_e_hp,silicate_e_hc,silicate_nu_h2,silicate_nu_hc
+  real(kind=dp) :: graphite_cross_section,graphite_mu,graphite_e_s,graphite_e_h2
+  real(kind=dp) :: graphite_e_hp,graphite_e_hc,graphite_nu_h2,graphite_nu_hc
 
   !  Mean thermal velocity of hydrogen atoms (cm s^-1)
-  THERMAL_VELOCITY=1.45D5*SQRT(GAS_TEMPERATURE/1.0D2)
+  thermal_velocity=1.45d5*sqrt(gas_temperature/1.0d2)
 
   !  Calculate the thermally averaged sticking coefficient of hydrogen atoms on grains,
   !  as given by Hollenbach & McKee (1979, ApJS, 41, 555, eqn 3.7)
-  STICKING_COEFFICIENT=1.0D0/(1.0D0+0.04D0*SQRT(GAS_TEMPERATURE+GRAIN_TEMPERATURE) &
-      & + 0.2D0*(GAS_TEMPERATURE/1.0D2)+0.08D0*(GAS_TEMPERATURE/1.0D2)**2)
+  sticking_coefficient=1.0d0/(1.0d0+0.04d0*sqrt(gas_temperature+grain_temperature) &
+      & + 0.2d0*(gas_temperature/1.0d2)+0.08d0*(gas_temperature/1.0d2)**2)
 
-  FLUX=1.0D-10 ! Flux of H atoms in monolayers per second (mLy s^-1)
+  flux=1.0d-10 ! Flux of H atoms in monolayers per second (mLy s^-1)
 
-  TOTAL_CROSS_SECTION=6.273D-22 ! Total mixed grain cross section per H nucleus (cm^-2/nucleus)
-  SILICATE_CROSS_SECTION=8.473D-22 ! Silicate grain cross section per H nucleus (cm^-2/nucleus)
-  GRAPHITE_CROSS_SECTION=7.908D-22 ! Graphite grain cross section per H nucleus (cm^-2/nucleus)
+  total_cross_section=6.273d-22 ! Total mixed grain cross section per H nucleus (cm^-2/nucleus)
+  silicate_cross_section=8.473d-22 ! Silicate grain cross section per H nucleus (cm^-2/nucleus)
+  graphite_cross_section=7.908d-22 ! Graphite grain cross section per H nucleus (cm^-2/nucleus)
 
   !  Silicate grain properties
-  SILICATE_MU=0.005D0   ! Fraction of newly formed H2 that stays on the grain surface
-  SILICATE_E_S=110.0D0  ! Energy of the saddle point between a physisorbed and a chemisorbed site (K)
-  SILICATE_E_H2=320.0D0 ! Desorption energy of H2 molecules (K)
-  SILICATE_E_HP=450.0D0 ! Desorption energy of physisorbed H atoms (K)
-  SILICATE_E_HC=3.0D4   ! Desorption energy of chemisorbed H atoms (K)
-  SILICATE_NU_H2=3.0D12 ! Vibrational frequency of H2 molecules in surface sites (s^-1)
-  SILICATE_NU_HC=1.3D13 ! Vibrational frequency of H atoms in their surface sites (s^-1)
+  silicate_mu=0.005d0 ! Fraction of newly formed H2 that stays on the grain surface
+  silicate_e_s=110.0d0 ! Energy of the saddle point between a physisorbed and a chemisorbed site (K)
+  silicate_e_h2=320.0d0 ! Desorption energy of H2 molecules (K)
+  silicate_e_hp=450.0d0 ! Desorption energy of physisorbed H atoms (K)
+  silicate_e_hc=3.0d4 ! Desorption energy of chemisorbed H atoms (K)
+  silicate_nu_h2=3.0d12 ! Vibrational frequency of H2 molecules in surface sites (s^-1)
+  silicate_nu_hc=1.3d13 ! Vibrational frequency of H atoms in their surface sites (s^-1)
 
-  FACTOR1=SILICATE_MU*FLUX/(2*SILICATE_NU_H2*EXP(-SILICATE_E_H2/GRAIN_TEMPERATURE))
+  factor1=silicate_mu*flux/(2*silicate_nu_h2*exp(-silicate_e_h2/grain_temperature))
 
-  FACTOR2=1.0D0*(1.0D0+SQRT((SILICATE_E_HC-SILICATE_E_S)/(SILICATE_E_HP-SILICATE_E_S)))**2 &
-      & /4.0D0*EXP(-SILICATE_E_S/GRAIN_TEMPERATURE)
+  factor2=1.0d0*(1.0d0+sqrt((silicate_e_hc-silicate_e_s)/(silicate_e_hp-silicate_e_s)))**2 &
+      & /4.0d0*exp(-silicate_e_s/grain_temperature)
 
-  EPSILON=1.0D0/(1.0D0+SILICATE_NU_HC/(2*FLUX)*EXP(-1.5*SILICATE_E_HC/GRAIN_TEMPERATURE) &
-      & *(1.0D0+SQRT((SILICATE_E_HC-SILICATE_E_S)/(SILICATE_E_HP-SILICATE_E_S)))**2)
+  epsilon=1.0d0/(1.0d0+silicate_nu_hc/(2*flux)*exp(-1.5*silicate_e_hc/grain_temperature) &
+      & *(1.0d0+sqrt((silicate_e_hc-silicate_e_s)/(silicate_e_hp-silicate_e_s)))**2)
 
-  SILICATE_FORMATION_EFFICIENCY=1.0D0/(1.0D0+FACTOR1+FACTOR2)*EPSILON
+  silicate_formation_efficiency=1.0d0/(1.0d0+factor1+factor2)*epsilon
 
   !  Graphite grain properties
-  GRAPHITE_MU=0.005D0   ! Fraction of newly formed H2 that stays on the grain surface
-  GRAPHITE_E_S=260.0D0  ! Energy of the saddle point between a physisorbed and a chemisorbed site (K)
-  GRAPHITE_E_H2=520.0D0 ! Desorption energy of H2 molecules (K)
-  GRAPHITE_E_HP=800.0D0 ! Desorption energy of physisorbed H atoms (K)
-  GRAPHITE_E_HC=3.0D4   ! Desorption energy of chemisorbed H atoms (K)
-  GRAPHITE_NU_H2=3.0D12 ! Vibrational frequency of H2 molecules in surface sites (s^-1)
-  GRAPHITE_NU_HC=1.3D13 ! Vibrational frequency of H atoms in their surface sites (s^-1)
+  graphite_mu=0.005d0 ! Fraction of newly formed H2 that stays on the grain surface
+  graphite_e_s=260.0d0 ! Energy of the saddle point between a physisorbed and a chemisorbed site (K)
+  graphite_e_h2=520.0d0 ! Desorption energy of H2 molecules (K)
+  graphite_e_hp=800.0d0 ! Desorption energy of physisorbed H atoms (K)
+  graphite_e_hc=3.0d4 ! Desorption energy of chemisorbed H atoms (K)
+  graphite_nu_h2=3.0d12 ! Vibrational frequency of H2 molecules in surface sites (s^-1)
+  graphite_nu_hc=1.3d13 ! Vibrational frequency of H atoms in their surface sites (s^-1)
 
-  FACTOR1=GRAPHITE_MU*FLUX/(2*GRAPHITE_NU_H2*EXP(-GRAPHITE_E_H2/GRAIN_TEMPERATURE))
+  factor1=graphite_mu*flux/(2*graphite_nu_h2*exp(-graphite_e_h2/grain_temperature))
 
-  FACTOR2=1.0D0*(1.0D0+SQRT((GRAPHITE_E_HC-GRAPHITE_E_S)/(GRAPHITE_E_HP-GRAPHITE_E_S)))**2 &
-      & /4.0D0*EXP(-GRAPHITE_E_S/GRAIN_TEMPERATURE)
+  factor2=1.0d0*(1.0d0+sqrt((graphite_e_hc-graphite_e_s)/(graphite_e_hp-graphite_e_s)))**2 &
+      & /4.0d0*exp(-graphite_e_s/grain_temperature)
 
-  EPSILON=1.0D0/(1.0D0+GRAPHITE_NU_HC/(2*FLUX)*EXP(-1.5*GRAPHITE_E_HC/GRAIN_TEMPERATURE) &
-      & *(1.0D0+SQRT((GRAPHITE_E_HC-GRAPHITE_E_S)/(GRAPHITE_E_HP-GRAPHITE_E_S)))**2)
+  epsilon=1.0d0/(1.0d0+graphite_nu_hc/(2*flux)*exp(-1.5*graphite_e_hc/grain_temperature) &
+      & *(1.0d0+sqrt((graphite_e_hc-graphite_e_s)/(graphite_e_hp-graphite_e_s)))**2)
 
-  GRAPHITE_FORMATION_EFFICIENCY=1.0D0/(1.0D0+FACTOR1+FACTOR2)*EPSILON
+  graphite_formation_efficiency=1.0d0/(1.0d0+factor1+factor2)*epsilon
 
   !!$!  Use the tradional rate, with a simple temperature dependence based on the
   !!$!  thermal velocity of the H atoms in the gas and neglecting any temperature
@@ -94,8 +94,8 @@ FUNCTION H2_FORMATION_RATE(GAS_TEMPERATURE,GRAIN_TEMPERATURE) RESULT(RATE)
 
   !  Use the treatment of Cazaux & Tielens (2002, ApJ, 575, L29) and
   !  Cazaux & Tielens (2004, ApJ, 604, 222)
-  RATE=0.5D0*THERMAL_VELOCITY*(SILICATE_CROSS_SECTION*SILICATE_FORMATION_EFFICIENCY &
-      & + GRAPHITE_CROSS_SECTION*GRAPHITE_FORMATION_EFFICIENCY)*STICKING_COEFFICIENT*METALLICITY*100./g2d
+  rate=0.5d0*thermal_velocity*(silicate_cross_section*silicate_formation_efficiency &
+      & + graphite_cross_section*graphite_formation_efficiency)*sticking_coefficient*metallicity*100./g2d
 
   !RATE = RATE / 3.0
 
@@ -109,6 +109,6 @@ FUNCTION H2_FORMATION_RATE(GAS_TEMPERATURE,GRAIN_TEMPERATURE) RESULT(RATE)
   !!$      & *(0.539D0/EXP((GRAPHITE_E_HP-GRAPHITE_E_S)/GRAIN_TEMPERATURE) + 5.6334D-14*SQRT(GRAIN_TEMPERATURE)))))) &
   !!$      & *STICKING_COEFFICIENT
 
-  RETURN
-END FUNCTION H2_FORMATION_RATE
+  return
+end function h2_formation_rate
 !=======================================================================

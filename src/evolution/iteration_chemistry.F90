@@ -31,17 +31,17 @@ contains
         dummy_abundance(:,point_index) = grid%points(point_id)%abundance
         dummy_density(point_index) = grid%points(point_id)%rho
         dummy_temperature(point_index) = thermal%gas_temperature(point_index)
-      enddo
+      end do
 
       call calculate_abundances(dummy_abundance,dummy_rate,dummy_density,dummy_temperature,pdr_ptot,nspec,nreac)
 
       do point_index=1,pdr_ptot
         point_id=grid%pdr_ids(point_index)
         grid%points(point_id)%abundance = dummy_abundance(:,point_index)
-      enddo
+      end do
 
       call calc_columndens(.false.)
-    enddo
+    end do
 
     deallocate(dummy_rate)
     deallocate(dummy_abundance)
@@ -71,7 +71,7 @@ contains
         dummy_abundance(:,point_index) = grid%points(point_id)%abundance
         dummy_density(point_index) = grid%points(point_id)%rho
         dummy_temperature(point_index) = thermal%gas_temperature(point_index)
-      enddo
+      end do
 
       call calculate_abundances(dummy_abundance,dummy_rate,dummy_density,dummy_temperature,pdr_ptot,nspec,nreac)
 
@@ -81,10 +81,10 @@ contains
 #endif
         point_id=grid%pdr_ids(point_index)
         grid%points(point_id)%abundance = dummy_abundance(:,point_index)
-      enddo
+      end do
 
       call calc_columndens(.false.)
-    enddo
+    end do
 
     deallocate(dummy_rate)
     deallocate(dummy_abundance)

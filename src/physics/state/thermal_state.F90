@@ -37,7 +37,7 @@ contains
     allocate(state%mean_balance(0:pdr_count))
     allocate(state%low_temperature(0:pdr_count))
     allocate(state%high_temperature(0:pdr_count))
-    state%mean_balance = 0.0D0
+    state%mean_balance = 0.0d0
   end subroutine allocate_thermal_balance_state
 
   subroutine allocate_thermal_convergence_state(state, pdr_count)

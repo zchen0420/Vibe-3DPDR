@@ -6,20 +6,20 @@
 ! ============================================================================
 !T.Bisbas -- taken from SEREN/HEALPix
 
-MODULE definitions
+module definitions
 
-  integer, parameter :: DP = selected_real_kind(p=15) ! double precision
-  integer, parameter :: SP = selected_real_kind(p=6)  ! single precision
+  integer, parameter :: dp = selected_real_kind(p=15) ! double precision
+  integer, parameter :: sp = selected_real_kind(p=6) ! single precision
 
 #ifdef DOUBLE_PRECISION
-  integer, parameter :: PR = DP                       ! particle precision
+  integer, parameter :: pr = dp ! particle precision
 #else
-  integer, parameter :: PR = SP                       ! default = single
+  integer, parameter :: pr = sp ! default = single
 #endif
 
-  integer, parameter :: ILP = 4                       ! Integer long precision
+  integer, parameter :: ilp = 4 ! Integer long precision
 
-END MODULE definitions
+end module definitions
 
 
 ! ============================================================================

@@ -33,7 +33,7 @@ contains
       call pix2vec_nest(nside,pixel_index,pix2x,pix2y,vector,vertex)
       geometry%ray_vectors(1:3,pixel_index)=vector(1:3) !Store in memory
       write(77,'(3ES11.3,I7)') geometry%ray_vectors(1:3,pixel_index),pixel_index
-    enddo
+    end do
     close(77)
 
     write(6,*) 'Done!';write(6,*) ''
@@ -65,8 +65,8 @@ contains
       do ray_index=0,nrays-1
         if (grid%points(point_id)%epray(ray_index).eq.0) cycle
         if (grid%points(point_id)%raytype(ray_index).eq.-2) grid%points(point_id)%epray(ray_index)=grid%points(point_id)%epray(ray_index)-1
-      enddo
-    enddo
+      end do
+    end do
   end subroutine trim_boundary_evaluation_points
 
   subroutine update_maxpoints_from_evaluation_geometry
@@ -78,13 +78,13 @@ contains
       point_id=grid%pdr_ids(point_index)
       newmaxpoints = maxval(grid%points(point_id)%epray)
       if (newmaxpoints.gt.maxpoints) maxpoints = newmaxpoints
-    enddo
+    end do
 
     if (dark_ptot.gt.0) then
       point_id=grid%dark_ids(1)
       newmaxpoints = maxval(grid%points(point_id)%epray)
       if (newmaxpoints.gt.maxpoints) maxpoints = newmaxpoints
-    endif
+    end if
 
     write(6,*) '';write(6,*) 'new maxpoints = ',maxpoints
   end subroutine update_maxpoints_from_evaluation_geometry

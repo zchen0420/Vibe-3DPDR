@@ -8,7 +8,7 @@ contains
 
   subroutine dark_molecular_region
     use maincode_module, only : chemistry, dark_ptot, grid, nreac, nspec, rho_max, runtime, thermal
-    use coolants_module, only : COOLANT_COUNT
+    use coolants_module, only : coolant_count
     use columns_module, only : calc_columndens
     use convergence_module, only : set_lte_populations
 
@@ -26,7 +26,7 @@ contains
     write(6,*) ''
     write(6,*) '*** Dark Molecular Region ***'
     write(6,*) 'Calculating LTE level populations...'
-    molecular_density = 2.0D0*rho_max
+    molecular_density = 2.0d0*rho_max
     write(6,*) 'Density = ',molecular_density
 
     representative_point_id=grid%dark_ids(1)
@@ -46,7 +46,7 @@ contains
       local_density(1) = grid%points(representative_point_id)%rho
       local_temperature(1) = thermal%gas_temperature(0)
 
-      call CALCULATE_ABUNDANCES(local_abundance,local_rate,local_density,local_temperature,1,NSPEC,NREAC)
+      call calculate_abundances(local_abundance,local_rate,local_density,local_temperature,1,nspec,nreac)
       grid%points(representative_point_id)%abundance = local_abundance(:,1)
 
       deallocate(local_abundance)
@@ -55,19 +55,19 @@ contains
       deallocate(local_rate)
 
       call calc_columndens(.false.)
-    enddo
+    end do
 
     call set_lte_populations(representative_point_id, thermal%gas_temperature(0), molecular_density)
 
     write(6,*) 'Assigning properties to all dark particles'
     do dark_point_index=2,dark_ptot
       dark_point_id=grid%dark_ids(dark_point_index)
-      do coolant_id=1,COOLANT_COUNT
+      do coolant_id=1,coolant_count
         grid%points(dark_point_id)%coolant_state(coolant_id)%population = &
             &grid%points(representative_point_id)%coolant_state(coolant_id)%population
-      enddo
+      end do
       grid%points(dark_point_id)%abundance = grid%points(representative_point_id)%abundance
-    enddo
+    end do
     write(6,*) 'Done! Proceeding with grid%points...'
   end subroutine dark_molecular_region
 

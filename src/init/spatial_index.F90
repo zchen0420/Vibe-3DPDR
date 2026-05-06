@@ -24,7 +24,7 @@ contains
       point_id=grid%pdr_ids(point_index)
       position_rev(1:3,point_index)=grid%points(point_id)%position
       density_rev(point_index)=grid%points(point_id)%rho
-    enddo
+    end do
 
     position_rev(1:3,pdr_ptot-1)=grid%points(grid%pdr_ids(pdr_ptot))%position
     density_rev(pdr_ptot-1)=grid%points(grid%pdr_ids(pdr_ptot))%rho
@@ -36,7 +36,7 @@ contains
       point_id=grid%pdr_ids(point_index)
       grid%points(point_id)%position=position_rev(1:3,point_index)
       grid%points(point_id)%rho=density_rev(point_index)
-    enddo
+    end do
 
     deallocate(position_rev)
     deallocate(density_rev)
@@ -51,7 +51,7 @@ contains
       point_id=grid%pdr_ids(point_index)
       geometry%radial_order(point_index) = sqrt(sum(grid%points(point_id)%position**2))
       geometry%point_order(point_index) = point_id
-    enddo
+    end do
   end subroutine build_pdr_point_index
 
 end module spatial_index_module

@@ -80,7 +80,7 @@ contains
         call refresh_lte_populations_for_unconverged_points
       else
         call solve_level_populations_lvg(atomic_coolants_converged)
-      endif
+      end if
 
       call calculate_heating_and_temperature_updates(dobinarychop, previouschange)
       call evaluate_iteration_convergence(stop_iterations)
@@ -89,7 +89,7 @@ contains
       call report_iteration_convergence(atomic_coolants_converged)
       call update_population_densities
       call write_iteration_timing(iteration_start_time)
-    enddo
+    end do
 
     call write_final_outputs(config_file)
     call write_simulation_finished(simulation_start_time)

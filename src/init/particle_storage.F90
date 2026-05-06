@@ -1,6 +1,6 @@
 module particle_storage_module
   use healpix_types
-  use coolants_module, only : COOLANT_COUNT, COOLANT_CII, COOLANT_CI, COOLANT_OI, COOLANT_C12O
+  use coolants_module, only : coolant_count, coolant_cii, coolant_ci, coolant_oi, coolant_c12o
   use maincode_module
 
 contains
@@ -20,12 +20,12 @@ contains
     integer(kind=i4b) :: point_id
 
     do point_id=1,grand_ptot
-      allocate(grid%points(point_id)%coolant_state(1:COOLANT_COUNT))
-      call allocate_point_coolant_population(point_id, COOLANT_CII)
-      call allocate_point_coolant_population(point_id, COOLANT_CI)
-      call allocate_point_coolant_population(point_id, COOLANT_OI)
-      call allocate_point_coolant_population(point_id, COOLANT_C12O)
-    enddo
+      allocate(grid%points(point_id)%coolant_state(1:coolant_count))
+      call allocate_point_coolant_population(point_id, coolant_cii)
+      call allocate_point_coolant_population(point_id, coolant_ci)
+      call allocate_point_coolant_population(point_id, coolant_oi)
+      call allocate_point_coolant_population(point_id, coolant_c12o)
+    end do
   end subroutine allocate_level_populations
 
   subroutine allocate_radiation_arrays
@@ -34,13 +34,13 @@ contains
     do point_index=1,pdr_ptot
       point_id=grid%pdr_ids(point_index)
       call allocate_point_radiation_arrays(point_id)
-    enddo
+    end do
   end subroutine allocate_radiation_arrays
 
   subroutine allocate_dark_region_radiation_arrays
     if (dark_ptot.gt.0) then
       call allocate_point_radiation_arrays(grid%dark_ids(1))
-    endif
+    end if
   end subroutine allocate_dark_region_radiation_arrays
 
   subroutine allocate_point_radiation_arrays(point_id)
@@ -50,13 +50,13 @@ contains
     allocate(grid%points(point_id)%epoint(1:3,0:nrays-1,0:maxpoints))
     allocate(grid%points(point_id)%projected(0:nrays-1,0:maxpoints))
     allocate(grid%points(point_id)%columndensity(0:nrays-1))
-    allocate(grid%points(point_id)%AV(0:nrays-1))
+    allocate(grid%points(point_id)%av(0:nrays-1))
     allocate(grid%points(point_id)%rad_surface(0:nrays-1))
     allocate(grid%points(point_id)%raytype(0:nrays-1))
-    call allocate_point_coolant_radiation(point_id, COOLANT_CII)
-    call allocate_point_coolant_radiation(point_id, COOLANT_CI)
-    call allocate_point_coolant_radiation(point_id, COOLANT_OI)
-    call allocate_point_coolant_radiation(point_id, COOLANT_C12O)
+    call allocate_point_coolant_radiation(point_id, coolant_cii)
+    call allocate_point_coolant_radiation(point_id, coolant_ci)
+    call allocate_point_coolant_radiation(point_id, coolant_oi)
+    call allocate_point_coolant_radiation(point_id, coolant_c12o)
   end subroutine allocate_point_radiation_arrays
 
   subroutine allocate_point_coolant_population(point_id, coolant_id)
@@ -81,10 +81,10 @@ contains
   subroutine allocate_solution_arrays
     integer(kind=i4b) :: coolant_id
 
-    if (.not.allocated(coolant_iteration)) allocate(coolant_iteration(1:COOLANT_COUNT))
-    do coolant_id = 1, COOLANT_COUNT
+    if (.not.allocated(coolant_iteration)) allocate(coolant_iteration(1:coolant_count))
+    do coolant_id = 1, coolant_count
       allocate(coolant_iteration(coolant_id)%solution(0:pdr_ptot,1:coolant(coolant_id)%nlevels))
-    enddo
+    end do
   end subroutine allocate_solution_arrays
 
 end module particle_storage_module

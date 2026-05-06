@@ -1,6 +1,7 @@
 # Makefile for 3DPDR
 # Written by T. G. Bisbas
 # University College London
+# Modified by Z. Chen via GPT-5.5 vibe coding
 
 F90               = gfortran
 CC                = gcc

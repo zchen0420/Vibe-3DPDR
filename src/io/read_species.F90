@@ -12,183 +12,183 @@
 !C     of NSPEC agrees with the number of species in the file and produce
 !C     an error message if not.
 !C-----------------------------------------------------------------------
-SUBROUTINE READ_SPECIES(NSPEC,SPECIES,ABUNDANCE,MASS)
+subroutine read_species(nspec,species,abundance,mass)
 
   !T.Bell
   use definitions
   use healpix_types
   use global_module
 
-  IMPLICIT NONE
-  INTEGER(kind=i4b),intent(in) :: NSPEC
-  real(kind=dp), intent(out) :: ABUNDANCE(1:nspec),MASS(1:nspec)
-  CHARACTER(len=10), intent(out) :: SPECIES(1:nspec)
+  implicit none
+  integer(kind=i4b),intent(in) :: nspec
+  real(kind=dp), intent(out) :: abundance(1:nspec),mass(1:nspec)
+  character(len=10), intent(out) :: species(1:nspec)
 
-  INTEGER(kind=i4b) :: I,INDEX,SPECIESFILE
+  integer(kind=i4b) :: i,index,speciesfile
 
-  SPECIESFILE = 3
+  speciesfile = 3
 
   !C     Initialize the variables and read in the species data. Check that
   !C     the value of NSPEC agrees with the number of species in the file
   !C     and produce an error message if not.
-  SPECIES="          "
-  ABUNDANCE=0.0D0
-  MASS=0.0D0
+  species="          "
+  abundance=0.0d0
+  mass=0.0d0
 
   !C     Initialize all the species index labels. If they are not assigned
   !C     subsequently, any attempt to access that species will generate an
   !C     error and the code will crash. This is a useful bug catch.
-  species_idx%NH=0
-  species_idx%ND=0
-  species_idx%NH2=0
-  species_idx%NHD=0
-  species_idx%NH2x=0
-  species_idx%NPROTON=0
-  species_idx%NC=0
-  species_idx%NCx=0
-  species_idx%NO=0
-  species_idx%NOx=0
-  species_idx%NN=0
-  species_idx%NNx=0
-  species_idx%NS=0
-  species_idx%NSx=0
-  species_idx%NHe=0
-  species_idx%NHEx=0
-  species_idx%NNA=0
-  species_idx%NNAx=0
-  species_idx%NMG=0
-  species_idx%NMGx=0
-  species_idx%NSI=0
-  species_idx%NSIx=0
-  species_idx%NFE=0
-  species_idx%NFEx=0
-  species_idx%NCL=0
-  species_idx%NCLx=0
-  species_idx%NCA=0
-  species_idx%NCAx=0
-  species_idx%NCAxx=0
-  species_idx%NCO=0
-  species_idx%NCH=0
-  species_idx%NCH2=0
-  species_idx%NOH=0
-  species_idx%NO2=0
-  species_idx%NCS=0
-  species_idx%NH2O=0
-  NELECT=0
-  species_idx%NH3x=0
-  species_idx%NH3Ox=0
-  species_idx%NHCOx=0
+  species_idx%nh=0
+  species_idx%nd=0
+  species_idx%nh2=0
+  species_idx%nhd=0
+  species_idx%nh2x=0
+  species_idx%nproton=0
+  species_idx%nc=0
+  species_idx%ncx=0
+  species_idx%no=0
+  species_idx%nox=0
+  species_idx%nn=0
+  species_idx%nnx=0
+  species_idx%ns=0
+  species_idx%nsx=0
+  species_idx%nhe=0
+  species_idx%nhex=0
+  species_idx%nna=0
+  species_idx%nnax=0
+  species_idx%nmg=0
+  species_idx%nmgx=0
+  species_idx%nsi=0
+  species_idx%nsix=0
+  species_idx%nfe=0
+  species_idx%nfex=0
+  species_idx%ncl=0
+  species_idx%nclx=0
+  species_idx%nca=0
+  species_idx%ncax=0
+  species_idx%ncaxx=0
+  species_idx%nco=0
+  species_idx%nch=0
+  species_idx%nch2=0
+  species_idx%noh=0
+  species_idx%no2=0
+  species_idx%ncs=0
+  species_idx%nh2o=0
+  nelect=0
+  species_idx%nh3x=0
+  species_idx%nh3ox=0
+  species_idx%nhcox=0
 #ifdef REDUCED
-  OPEN(SPECIESFILE,FILE="data/species_reduced.d",STATUS="OLD")
+  open(speciesfile,file="data/species_reduced.d",status="OLD")
 #endif
 #ifdef FULL
-  OPEN(SPECIESFILE,FILE="data/species_full.d",STATUS="OLD")
+  open(speciesfile,file="data/species_full.d",status="OLD")
 #endif
 #ifdef MYNETWORK
-  OPEN(SPECIESFILE,FILE="data/species_mynetwork.d",STATUS="OLD")
+  open(speciesfile,file="data/species_mynetwork.d",status="OLD")
 #endif
-  REWIND(SPECIESFILE)
-  DO I=1,NSPEC
-    READ(SPECIESFILE,*,END=1) INDEX,SPECIES(I),ABUNDANCE(I),MASS(I)
+  rewind(speciesfile)
+  do i=1,nspec
+    read(speciesfile,*,end=1) index,species(i),abundance(i),mass(i)
 
     !C        Assign the various index labels to their correct species.
-    IF(SPECIES(I).EQ."H         ") species_idx%NH      = I
-    IF(SPECIES(I).EQ."D         ") species_idx%ND      = I
-    IF(SPECIES(I).EQ."H2        ") species_idx%NH2     = I
-    IF(SPECIES(I).EQ."HD        ") species_idx%NHD     = I
-    IF(SPECIES(I).EQ."H2+       ") species_idx%NH2x    = I
-    IF(SPECIES(I).EQ."H3+       ") species_idx%NH3x    = I
-    IF(SPECIES(I).EQ."H+        ") species_idx%NPROTON = I
-    IF(SPECIES(I).EQ."C         ") species_idx%NC      = I
-    IF(SPECIES(I).EQ."C+        ") species_idx%NCx     = I
-    IF(SPECIES(I).EQ."O         ") species_idx%NO      = I
-    IF(SPECIES(I).EQ."O+        ") species_idx%NOx     = I
-    IF(SPECIES(I).EQ."N         ") species_idx%NN      = I
-    IF(SPECIES(I).EQ."N+        ") species_idx%NNx     = I
-    IF(SPECIES(I).EQ."S         ") species_idx%NS      = I
-    IF(SPECIES(I).EQ."S+        ") species_idx%NSx     = I
-    IF(SPECIES(I).EQ."He        ") species_idx%NHe     = I
-    IF(SPECIES(I).EQ."HE        ") species_idx%NHe     = I
-    IF(SPECIES(I).EQ."He+       ") species_idx%NHEx    = I
-    IF(SPECIES(I).EQ."HE+       ") species_idx%NHEx    = I
-    IF(SPECIES(I).EQ."Na        ") species_idx%NNA     = I
-    IF(SPECIES(I).EQ."NA        ") species_idx%NNA     = I
-    IF(SPECIES(I).EQ."Na+       ") species_idx%NNAx    = I
-    IF(SPECIES(I).EQ."NA+       ") species_idx%NNAx    = I
-    IF(SPECIES(I).EQ."Mg        ") species_idx%NMG     = I
-    IF(SPECIES(I).EQ."MG        ") species_idx%NMG     = I
-    IF(SPECIES(I).EQ."Mg+       ") species_idx%NMGx    = I
-    IF(SPECIES(I).EQ."MG+       ") species_idx%NMGx    = I
-    IF(SPECIES(I).EQ."Si        ") species_idx%NSI     = I
-    IF(SPECIES(I).EQ."SI        ") species_idx%NSI     = I
-    IF(SPECIES(I).EQ."Si+       ") species_idx%NSIx    = I
-    IF(SPECIES(I).EQ."SI+       ") species_idx%NSIx    = I
-    IF(SPECIES(I).EQ."Fe        ") species_idx%NFE     = I
-    IF(SPECIES(I).EQ."FE        ") species_idx%NFE     = I
-    IF(SPECIES(I).EQ."Fe+       ") species_idx%NFEx    = I
-    IF(SPECIES(I).EQ."FE+       ") species_idx%NFEx    = I
-    IF(SPECIES(I).EQ."Cl        ") species_idx%NCL     = I
-    IF(SPECIES(I).EQ."CL        ") species_idx%NCL     = I
-    IF(SPECIES(I).EQ."Cl+       ") species_idx%NCLx    = I
-    IF(SPECIES(I).EQ."CL+       ") species_idx%NCLx    = I
-    IF(SPECIES(I).EQ."Ca        ") species_idx%NCA     = I
-    IF(SPECIES(I).EQ."CA        ") species_idx%NCA     = I
-    IF(SPECIES(I).EQ."Ca+       ") species_idx%NCAx    = I
-    IF(SPECIES(I).EQ."CA+       ") species_idx%NCAx    = I
-    IF(SPECIES(I).EQ."Ca++      ") species_idx%NCAxx   = I
-    IF(SPECIES(I).EQ."CA++      ") species_idx%NCAxx   = I
-    IF(SPECIES(I).EQ."CO        ") species_idx%NCO     = I
-    IF(SPECIES(I).EQ."CH        ") species_idx%NCH     = I
-    IF(SPECIES(I).EQ."CH2       ") species_idx%NCH2    = I
-    IF(SPECIES(I).EQ."OH        ") species_idx%NOH     = I
-    IF(SPECIES(I).EQ."O2        ") species_idx%NO2     = I
-    IF(SPECIES(I).EQ."CS        ") species_idx%NCS     = I
-    IF(SPECIES(I).EQ."H2O       ") species_idx%NH2O    = I
-    IF(SPECIES(I).EQ."H3O+      ") species_idx%NH3Ox   = I
-    IF(SPECIES(I).EQ."HCO+      ") species_idx%NHCOx   = I
-    IF(SPECIES(I).EQ."e-        ") NELECT  = I
-    IF(SPECIES(I).EQ."ELECTR    ") NELECT  = I
-  ENDDO
+    if(species(i).eq."H         ") species_idx%nh      = i
+    if(species(i).eq."D         ") species_idx%nd      = i
+    if(species(i).eq."H2        ") species_idx%nh2     = i
+    if(species(i).eq."HD        ") species_idx%nhd     = i
+    if(species(i).eq."H2+       ") species_idx%nh2x    = i
+    if(species(i).eq."H3+       ") species_idx%nh3x    = i
+    if(species(i).eq."H+        ") species_idx%nproton = i
+    if(species(i).eq."C         ") species_idx%nc      = i
+    if(species(i).eq."C+        ") species_idx%ncx     = i
+    if(species(i).eq."O         ") species_idx%no      = i
+    if(species(i).eq."O+        ") species_idx%nox     = i
+    if(species(i).eq."N         ") species_idx%nn      = i
+    if(species(i).eq."N+        ") species_idx%nnx     = i
+    if(species(i).eq."S         ") species_idx%ns      = i
+    if(species(i).eq."S+        ") species_idx%nsx     = i
+    if(species(i).eq."He        ") species_idx%nhe     = i
+    if(species(i).eq."HE        ") species_idx%nhe     = i
+    if(species(i).eq."He+       ") species_idx%nhex    = i
+    if(species(i).eq."HE+       ") species_idx%nhex    = i
+    if(species(i).eq."Na        ") species_idx%nna     = i
+    if(species(i).eq."NA        ") species_idx%nna     = i
+    if(species(i).eq."Na+       ") species_idx%nnax    = i
+    if(species(i).eq."NA+       ") species_idx%nnax    = i
+    if(species(i).eq."Mg        ") species_idx%nmg     = i
+    if(species(i).eq."MG        ") species_idx%nmg     = i
+    if(species(i).eq."Mg+       ") species_idx%nmgx    = i
+    if(species(i).eq."MG+       ") species_idx%nmgx    = i
+    if(species(i).eq."Si        ") species_idx%nsi     = i
+    if(species(i).eq."SI        ") species_idx%nsi     = i
+    if(species(i).eq."Si+       ") species_idx%nsix    = i
+    if(species(i).eq."SI+       ") species_idx%nsix    = i
+    if(species(i).eq."Fe        ") species_idx%nfe     = i
+    if(species(i).eq."FE        ") species_idx%nfe     = i
+    if(species(i).eq."Fe+       ") species_idx%nfex    = i
+    if(species(i).eq."FE+       ") species_idx%nfex    = i
+    if(species(i).eq."Cl        ") species_idx%ncl     = i
+    if(species(i).eq."CL        ") species_idx%ncl     = i
+    if(species(i).eq."Cl+       ") species_idx%nclx    = i
+    if(species(i).eq."CL+       ") species_idx%nclx    = i
+    if(species(i).eq."Ca        ") species_idx%nca     = i
+    if(species(i).eq."CA        ") species_idx%nca     = i
+    if(species(i).eq."Ca+       ") species_idx%ncax    = i
+    if(species(i).eq."CA+       ") species_idx%ncax    = i
+    if(species(i).eq."Ca++      ") species_idx%ncaxx   = i
+    if(species(i).eq."CA++      ") species_idx%ncaxx   = i
+    if(species(i).eq."CO        ") species_idx%nco     = i
+    if(species(i).eq."CH        ") species_idx%nch     = i
+    if(species(i).eq."CH2       ") species_idx%nch2    = i
+    if(species(i).eq."OH        ") species_idx%noh     = i
+    if(species(i).eq."O2        ") species_idx%no2     = i
+    if(species(i).eq."CS        ") species_idx%ncs     = i
+    if(species(i).eq."H2O       ") species_idx%nh2o    = i
+    if(species(i).eq."H3O+      ") species_idx%nh3ox   = i
+    if(species(i).eq."HCO+      ") species_idx%nhcox   = i
+    if(species(i).eq."e-        ") nelect  = i
+    if(species(i).eq."ELECTR    ") nelect  = i
+  end do
 
-  I=I-1
-  READ(SPECIESFILE,*,END=1)
-  I=I+1
-  1    IF(I.NE.NSPEC) THEN
-  write(6,*) 'ERROR! Number of species (NSPEC) does not match ',&
-      &           'the number of entries in the species file'
-  STOP
-ENDIF
+  i=i-1
+  read(speciesfile,*,end=1)
+  i=i+1
+  1    if(i.ne.nspec) then
+    write(6,*) 'ERROR! Number of species (NSPEC) does not match ',&
+        &           'the number of entries in the species file'
+    stop
+  end if
 
-!C     Check that the final species in the file is e-. Print a warning
-!C     message to screen and logfile if not.
-IF(SPECIES(NSPEC).NE."e-") THEN
-  write(6,*) 'WARNING! Last entry in species file is not e-'
-  WRITE(10,*)'WARNING! Last entry in species file is not e-'
-ENDIF
+  !C     Check that the final species in the file is e-. Print a warning
+  !C     message to screen and logfile if not.
+  if(species(nspec).ne."e-") then
+    write(6,*) 'WARNING! Last entry in species file is not e-'
+    write(10,*)'WARNING! Last entry in species file is not e-'
+  end if
 
 
-!C     Check that the total hydrogen nuclei abundance adds up to 1.
-!C     If not, modify the abundance of H2 (only consider H, H+ & H2)
-IF((ABUNDANCE(species_idx%NH)+ABUNDANCE(species_idx%NPROTON)+2.0D0*ABUNDANCE(species_idx%NH2)).NE.1.0D0) THEN
-  ABUNDANCE(species_idx%NH2)=0.5D0*(1.0D0-ABUNDANCE(species_idx%NH)-ABUNDANCE(species_idx%NPROTON))
-ENDIF
+  !C     Check that the total hydrogen nuclei abundance adds up to 1.
+  !C     If not, modify the abundance of H2 (only consider H, H+ & H2)
+  if((abundance(species_idx%nh)+abundance(species_idx%nproton)+2.0d0*abundance(species_idx%nh2)).ne.1.0d0) then
+    abundance(species_idx%nh2)=0.5d0*(1.0d0-abundance(species_idx%nh)-abundance(species_idx%nproton))
+  end if
 
-!C     Calculate the intial electron abundance, if not
-!C     specified, as the sum of the metal ion abundances
-IF(ABUNDANCE(NELECT).LE.0.0D0) THEN
-  ABUNDANCE(NELECT)=0.0D0
-  IF(species_idx%NCx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NCx)
-  IF(species_idx%NSx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NSx)
-  IF(species_idx%NNAx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NNAx)
-  IF(species_idx%NMGx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NMGx)
-  IF(species_idx%NSIx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NSIx)
-  IF(species_idx%NFEx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NFEx)
-  IF(species_idx%NCLx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NCLx)
-  IF(species_idx%NCAx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NCAx)
-  IF(species_idx%NCAxx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+2.0D0*ABUNDANCE(species_idx%NCAxx)
-  IF(species_idx%NPROTON.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NPROTON)
-ENDIF
+  !C     Calculate the intial electron abundance, if not
+  !C     specified, as the sum of the metal ion abundances
+  if(abundance(nelect).le.0.0d0) then
+    abundance(nelect)=0.0d0
+    if(species_idx%ncx.ne.0) abundance(nelect)=abundance(nelect)+abundance(species_idx%ncx)
+    if(species_idx%nsx.ne.0) abundance(nelect)=abundance(nelect)+abundance(species_idx%nsx)
+    if(species_idx%nnax.ne.0) abundance(nelect)=abundance(nelect)+abundance(species_idx%nnax)
+    if(species_idx%nmgx.ne.0) abundance(nelect)=abundance(nelect)+abundance(species_idx%nmgx)
+    if(species_idx%nsix.ne.0) abundance(nelect)=abundance(nelect)+abundance(species_idx%nsix)
+    if(species_idx%nfex.ne.0) abundance(nelect)=abundance(nelect)+abundance(species_idx%nfex)
+    if(species_idx%nclx.ne.0) abundance(nelect)=abundance(nelect)+abundance(species_idx%nclx)
+    if(species_idx%ncax.ne.0) abundance(nelect)=abundance(nelect)+abundance(species_idx%ncax)
+    if(species_idx%ncaxx.ne.0) abundance(nelect)=abundance(nelect)+2.0d0*abundance(species_idx%ncaxx)
+    if(species_idx%nproton.ne.0) abundance(nelect)=abundance(nelect)+abundance(species_idx%nproton)
+  end if
 
-CLOSE(SPECIESFILE)
-RETURN
-END SUBROUTINE
+  close(speciesfile)
+  return
+end subroutine

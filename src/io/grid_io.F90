@@ -29,7 +29,7 @@ contains
       read(2,*,iostat=read_status) dummy_value
       if (read_status.ne.0) exit
       record_count=record_count+1
-    enddo
+    end do
 
     grand_ptot=record_count
     write(6,*) 'Total elements: ',grand_ptot
@@ -50,8 +50,8 @@ contains
     pdr_ptot=0
     ion_ptot=0
     dark_ptot=0
-    maximum_density=0.0D0
-    minimum_density=1.0D10
+    maximum_density=0.0d0
+    minimum_density=1.0d10
 
     open(unit=2,file=runtime%input_file,status='old')
 
@@ -63,8 +63,8 @@ contains
         grid%points(point_id)%position = (/x_position, y_position, z_position/)
         grid%points(point_id)%rho=density_value
         grid%ion_ids(ion_ptot)=point_id
-      endif
-      if ((density_value.gt.rho_min).AND.(density_value.le.rho_max)) then
+      end if
+      if ((density_value.gt.rho_min).and.(density_value.le.rho_max)) then
         pdr_ptot = pdr_ptot + 1
         grid%points(point_id)%etype = 1 !grid%points
         grid%points(point_id)%position = (/x_position, y_position, z_position/)
@@ -72,15 +72,15 @@ contains
         if (density_value.gt.maximum_density) maximum_density=density_value
         if (density_value.lt.minimum_density) minimum_density=density_value
         grid%pdr_ids(pdr_ptot)=point_id
-      endif
+      end if
       if (density_value.gt.rho_max) then
         dark_ptot = dark_ptot + 1
         grid%points(point_id)%etype = 3 !DARK MOLECULAR
         grid%points(point_id)%position = (/x_position, y_position, z_position/)
         grid%points(point_id)%rho=density_value
         grid%dark_ids(dark_ptot)=point_id
-      endif
-    enddo
+      end if
+    end do
 
     close(2)
   end subroutine classify_grid_points
@@ -93,7 +93,7 @@ contains
     write(6,*) 'MOLECULAR elements = ',dark_ptot
     write(6,*) 'Maximum PDR density = ',maximum_density
     write(6,*) 'Minimum PDR density = ',minimum_density
-    write(6,*) 'Density used in DMR = ',2.0D0*rho_max
+    write(6,*) 'Density used in DMR = ',2.0d0*rho_max
   end subroutine print_grid_classification_summary
 
 end module grid_io_module

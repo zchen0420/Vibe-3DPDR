@@ -12,8 +12,8 @@ contains
     thermal%gas_temperature = runtime%temperature_guess
     thermal%previous_gas_temperature = runtime%temperature_guess
 #ifdef THERMALBALANCE
-    thermal%low_temperature = Tlow0
-    thermal%high_temperature = Thigh0
+    thermal%low_temperature = tlow0
+    thermal%high_temperature = thigh0
 #endif
 #endif
   end subroutine initialise_temperatures
@@ -25,13 +25,13 @@ contains
     do point_id=1,grand_ptot
       allocate(grid%points(point_id)%abundance(1:nspec))
       do species_index=1,nspec
-        if (chemistry%network%species(species_index).eq.'H2'.OR.chemistry%network%species(species_index).eq.'H'.OR.chemistry%network%species(species_index).eq.'He') then
+        if (chemistry%network%species(species_index).eq.'H2'.or.chemistry%network%species(species_index).eq.'H'.or.chemistry%network%species(species_index).eq.'He') then
           grid%points(point_id)%abundance(species_index) = chemistry%network%initial_abundance(species_index)
         else
           grid%points(point_id)%abundance(species_index) = chemistry%network%initial_abundance(species_index)*metallicity
-        endif
-      enddo
-    enddo
+        end if
+      end do
+    end do
   end subroutine initialise_particle_abundances
 
 end module initial_conditions_module

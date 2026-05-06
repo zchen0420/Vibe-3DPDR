@@ -1,5 +1,5 @@
 module collision_coefficients_module
-  use coolants_module, only : COLLISION_PARTNER_COUNT, coolant_data
+  use coolants_module, only : collision_partner_count, coolant_data
   use definitions, only : dp
   use healpix_types, only : i4b
   implicit none
@@ -9,7 +9,7 @@ contains
   subroutine calculate_collision_coefficients(coolant_table, gas_temperature, collider_density, coefficients)
     type(coolant_data), intent(in) :: coolant_table
     real(kind=dp), intent(in) :: gas_temperature
-    real(kind=dp), intent(in) :: collider_density(1:COLLISION_PARTNER_COUNT)
+    real(kind=dp), intent(in) :: collider_density(1:collision_partner_count)
     real(kind=dp), intent(out) :: coefficients(:,:)
 
     integer(kind=i4b) :: lower_temperature_index
@@ -19,15 +19,15 @@ contains
 
     call assert_collision_dimensions(coolant_table, coefficients)
 
-    coefficients = 0.0D0
-    do partner_id=1,COLLISION_PARTNER_COUNT
-      if (coolant_table%collision_temperatures(partner_id,1).eq.0.0D0) cycle
+    coefficients = 0.0d0
+    do partner_id=1,collision_partner_count
+      if (coolant_table%collision_temperatures(partner_id,1).eq.0.0d0) cycle
 
       call find_temperature_bracket(coolant_table%collision_temperatures(partner_id,:), gas_temperature, &
           &lower_temperature_index, upper_temperature_index, interpolation_fraction)
       call add_partner_collision_rates(coolant_table, partner_id, lower_temperature_index, &
           &upper_temperature_index, interpolation_fraction, collider_density(partner_id), coefficients)
-    enddo
+    end do
   end subroutine calculate_collision_coefficients
 
   subroutine assert_collision_dimensions(coolant_table, coefficients)
@@ -36,7 +36,7 @@ contains
 
     if (size(coefficients,1).ne.coolant_table%nlevels .or. size(coefficients,2).ne.coolant_table%nlevels) then
       stop 'calculate_collision_coefficients received inconsistent dimensions'
-    endif
+    end if
   end subroutine assert_collision_dimensions
 
   subroutine find_temperature_bracket(temperatures, gas_temperature, lower_index, upper_index, interpolation_fraction)
@@ -58,12 +58,12 @@ contains
         lower_index = temperature_index - 1
         upper_index = temperature_index
         exit
-      else if (temperatures(temperature_index).eq.0.0D0) then
+      else if (temperatures(temperature_index).eq.0.0d0) then
         lower_index = temperature_index - 1
         upper_index = temperature_index - 1
         exit
-      endif
-    enddo
+      end if
+    end do
 
     if (upper_index.eq.0) then
       lower_index = temperature_count
@@ -71,14 +71,14 @@ contains
     else if (upper_index.eq.1) then
       lower_index = 1
       upper_index = 1
-    endif
+    end if
 
     if (lower_index.eq.upper_index) then
-      interpolation_fraction = 0.0D0
+      interpolation_fraction = 0.0d0
     else
       interpolation_fraction = (gas_temperature-temperatures(lower_index)) &
           &/(temperatures(upper_index)-temperatures(lower_index))
-    endif
+    end if
   end subroutine find_temperature_bracket
 
   subroutine add_partner_collision_rates(coolant_table, partner_id, lower_temperature_index, upper_temperature_index, &

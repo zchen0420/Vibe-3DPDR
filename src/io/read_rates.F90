@@ -6,91 +6,91 @@
 !C     dependent FORMAT statements.
 !C***********************************************************************
 !
-SUBROUTINE READ_RATES(NREAC,REAC,PROD,ALPHA,BETA,GAMMA,RATE,&
-      &DUPLICATE,RTMIN,RTMAX)
+subroutine read_rates(nreac,reac,prod,alpha,beta,gamma,rate,&
+      &duplicate,rtmin,rtmax)
   !T.Bell
   use definitions
   use healpix_types
   use global_module
 
-  IMPLICIT NONE
-  INTEGER(kind=i4b), intent(in) :: NREAC
-  integer(kind=i4b), intent(out) :: DUPLICATE(1:nreac)
-  real(kind=dp), intent(out) :: ALPHA(1:nreac),BETA(1:nreac),&
-      &GAMMA(1:nreac),RATE(1:nreac),RTMIN(1:nreac),RTMAX(1:nreac)
-  CHARACTER(len=10), intent(out) :: REAC(1:nreac,1:3),PROD(1:nreac,1:4)
+  implicit none
+  integer(kind=i4b), intent(in) :: nreac
+  integer(kind=i4b), intent(out) :: duplicate(1:nreac)
+  real(kind=dp), intent(out) :: alpha(1:nreac),beta(1:nreac),&
+      &gamma(1:nreac),rate(1:nreac),rtmin(1:nreac),rtmax(1:nreac)
+  character(len=10), intent(out) :: reac(1:nreac,1:3),prod(1:nreac,1:4)
 
-  INTEGER(kind=i4b) :: I,J,N,RATEFILE
-  CHARACTER(len=1) :: CLEM
-  RATEFILE = 2
+  integer(kind=i4b) :: i,j,n,ratefile
+  character(len=1) :: clem
+  ratefile = 2
 
   !C     Initialize the variables and read in the ratefile data. Check that
   !C     the value of NREAC agrees with the number of reactions in the file
   !C     and produce an error message if not.
-  REAC="          "
-  PROD="          "
-  ALPHA=0.0D0
-  BETA=0.0D0
-  GAMMA=0.0D0
-  RTMIN=0.0D0
-  RTMAX=0.0D0
-  DUPLICATE=0
+  reac="          "
+  prod="          "
+  alpha=0.0d0
+  beta=0.0d0
+  gamma=0.0d0
+  rtmin=0.0d0
+  rtmax=0.0d0
+  duplicate=0
 
-  RATE=0.0D0
+  rate=0.0d0
 
 
 #ifdef REDUCED
-  OPEN(RATEFILE,FILE="data/rates_reduced.d",STATUS="OLD")
+  open(ratefile,file="data/rates_reduced.d",status="OLD")
 #endif
 #ifdef FULL
-  OPEN(RATEFILE,FILE="data/rates_full.d",STATUS="OLD")
+  open(ratefile,file="data/rates_full.d",status="OLD")
 #endif
 #ifdef MYNETWORK
-  OPEN(RATEFILE,FILE="data/rates_mynetwork.d",STATUS="OLD")
+  open(ratefile,file="data/rates_mynetwork.d",status="OLD")
 #endif
-  REWIND(RATEFILE)
-  DO I=1,NREAC
-    READ(RATEFILE,*,END=1) N,(REAC(I,J),J=1,3),(PROD(I,J),J=1,4),&
-        &                          ALPHA(I),BETA(I),GAMMA(I), &
-        &                          CLEM,RTMIN(I),RTMAX(I)
-    IF(CLEM.NE."") CLEM=""
+  rewind(ratefile)
+  do i=1,nreac
+    read(ratefile,*,end=1) n,(reac(i,j),j=1,3),(prod(i,j),j=1,4),&
+        &                          alpha(i),beta(i),gamma(i), &
+        &                          clem,rtmin(i),rtmax(i)
+    if(clem.ne."") clem=""
 
     !C     Check for duplicate reactions and set the DUPLICATE counter to the
     !C     appropriate value. Adjust their minimum temperatures so that the
     !C     temperature ranges are adjacent.
-    IF(I.GT.1) THEN
-      IF(REAC(I,1).EQ.REAC(I-1,1) .AND. &
-          &     REAC(I,2).EQ.REAC(I-1,2) .AND. REAC(I,3).EQ.REAC(I-1,3) .AND. &
-          &     PROD(I,1).EQ.PROD(I-1,1) .AND. PROD(I,2).EQ.PROD(I-1,2) .AND. &
-          &     PROD(I,3).EQ.PROD(I-1,3) .AND. PROD(I,4).EQ.PROD(I-1,4)) THEN
-      IF(DUPLICATE(I-1).EQ.0) DUPLICATE(I-1)=1
-      DUPLICATE(I)=DUPLICATE(I-1)+1
-      RTMIN(I)=RTMAX(I-1)
-    ELSE
-      DUPLICATE(I)=0
-    ENDIF
-  ELSE
-    DUPLICATE(I)=0
-  ENDIF
+    if(i.gt.1) then
+      if(reac(i,1).eq.reac(i-1,1) .and. &
+          &     reac(i,2).eq.reac(i-1,2) .and. reac(i,3).eq.reac(i-1,3) .and. &
+          &     prod(i,1).eq.prod(i-1,1) .and. prod(i,2).eq.prod(i-1,2) .and. &
+          &     prod(i,3).eq.prod(i-1,3) .and. prod(i,4).eq.prod(i-1,4)) then
+      if(duplicate(i-1).eq.0) duplicate(i-1)=1
+      duplicate(i)=duplicate(i-1)+1
+      rtmin(i)=rtmax(i-1)
+    else
+      duplicate(i)=0
+    end if
+  else
+    duplicate(i)=0
+  end if
 
   !C     Check for negative gamma values as they could cause problems when
   !C     calculating abundances. Produce a warning message if they occur.
-  IF(GAMMA(I).LT.0.0D0) THEN
-    write(6,*) 'Negative gamma factor in rate',N
-    WRITE(10,"('Negative gamma factor in rate',I5,' (',F8.1,')')")&
-        &         N,GAMMA(I)
-  ENDIF
-ENDDO
-I=I-1
-READ(RATEFILE,*,END=1)
-I=I+1
-1    IF(I.NE.NREAC) THEN
-write(6,*) 'ERROR! Number of reactions (NREAC) does not match ', &
-    &           'the number of entries in the ratefile'
-STOP
-ENDIF
+  if(gamma(i).lt.0.0d0) then
+    write(6,*) 'Negative gamma factor in rate',n
+    write(10,"('Negative gamma factor in rate',I5,' (',F8.1,')')")&
+        &         n,gamma(i)
+  end if
+end do
+i=i-1
+read(ratefile,*,end=1)
+i=i+1
+1    if(i.ne.nreac) then
+  write(6,*) 'ERROR! Number of reactions (NREAC) does not match ', &
+      &           'the number of entries in the ratefile'
+  stop
+end if
 
-CLOSE(RATEFILE)
-RETURN
-END SUBROUTINE
+close(ratefile)
+return
+end subroutine
 !C-----------------------------------------------------------------------

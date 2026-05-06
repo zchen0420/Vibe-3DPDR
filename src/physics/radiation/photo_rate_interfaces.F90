@@ -5,16 +5,16 @@ module photo_rate_interfaces_module
   implicit none
 
   interface
-    function H2PDRATE(K0,G0,AV,NH2)
+    function h2pdrate(k0,g0,av,nh2)
       use definitions
       use healpix_types
-      real(kind=dp) :: H2PDRATE
+      real(kind=dp) :: h2pdrate
       real(kind=dp), intent(in) :: k0, g0, av
       real(kind=dp), intent(in) :: nh2
       real(kind=dp) :: lambda, scatter, h2shield2
-    end function H2PDRATE
+    end function h2pdrate
 
-    function COPDRATE(K0,G0,AV,NCO,NH2)
+    function copdrate(k0,g0,av,nco,nh2)
       use definitions
       use healpix_types
       real(kind=dp) :: copdrate
@@ -23,86 +23,86 @@ module photo_rate_interfaces_module
       real(kind=dp) :: lambda, lbar, coshield, scatter
     end function copdrate
 
-    function CIPDRATE(K0,G0,AV,KAV,NCI,NH2,TGAS)
+    function cipdrate(k0,g0,av,kav,nci,nh2,tgas)
       use definitions
       use healpix_types
       real(kind=dp) :: cipdrate
-      real(kind=dp), intent(in) :: K0,G0,AV,KAV,NCI,TGAS
+      real(kind=dp), intent(in) :: k0,g0,av,kav,nci,tgas
       real(kind=dp), intent(in) :: nh2
       real(kind=dp) :: tauc
     end function cipdrate
 
-    function SIPDRATE(K0,G0,AV,KAV,NSI)
+    function sipdrate(k0,g0,av,kav,nsi)
       use definitions
       use healpix_types
       real(kind=dp) :: sipdrate
-      real(kind=dp), intent(in) :: K0,G0,AV,KAV,NSI
+      real(kind=dp), intent(in) :: k0,g0,av,kav,nsi
       real(kind=dp) :: taus
     end function sipdrate
 
-    function H2SHIELD1(NH2,DOPW,RADW)
+    function h2shield1(nh2,dopw,radw)
       use definitions
       use healpix_types
       real(kind=dp) :: h2shield1
       real(kind=dp), intent(in) :: nh2
-      real(kind=dp), intent(in) ::DOPW,RADW
-      real(kind=dp) :: FPARA, FOSC, TAUD, R, T, U, JD, JR
+      real(kind=dp), intent(in) ::dopw,radw
+      real(kind=dp) :: fpara, fosc, taud, r, t, u, jd, jr
     end function h2shield1
 
     function h2shield2(nh2)
       use definitions
       use healpix_types
-      use uclpdr_module, only : start, numh2, COL_GRID, SH2_GRID, SH2_DERIV
+      use uclpdr_module, only : start, numh2, col_grid, sh2_grid, sh2_deriv
       real(kind=dp) :: h2shield2
       real(kind=dp), intent(in) :: nh2
     end function h2shield2
 
-    function COSHIELD(NCO,NH2)
+    function coshield(nco,nh2)
       use definitions
       use healpix_types
-      use uclpdr_module, only : start, NCO_GRID, NH2_GRID, SCO_GRID, SCO_DERIV
-      real(kind=dp) :: COSHIELD
-      real(kind=dp) :: LOGNCO, LOGNH2
-      real(kind=dp), intent(in) :: NCO, NH2
-    end function COSHIELD
+      use uclpdr_module, only : start, nco_grid, nh2_grid, sco_grid, sco_deriv
+      real(kind=dp) :: coshield
+      real(kind=dp) :: lognco, lognh2
+      real(kind=dp), intent(in) :: nco, nh2
+    end function coshield
 
-    function SCATTER(AV,LAMBDA)
+    function scatter(av,lambda)
       use definitions
       use healpix_types
       real(kind=dp) :: scatter
-      real(kind=dp), intent(in) :: AV, LAMBDA
-      real(kind=dp), dimension(0:5), save :: A = (/&
-          &1.000D0,2.006D0,-1.438D0,0.7364D0,-0.5076D0,-0.0592D0/)
-      real(kind=dp), dimension(0:5), save :: K = (/&
-          &0.7514D0,0.8490D0,1.013D0,1.282D0,2.005D0,5.832D0/)
-      real(kind=dp) :: EXPONENT, XLAMBDA
+      real(kind=dp), intent(in) :: av, lambda
+      real(kind=dp), dimension(0:5), save :: a = (/&
+          &1.000d0,2.006d0,-1.438d0,0.7364d0,-0.5076d0,-0.0592d0/)
+      real(kind=dp), dimension(0:5), save :: k = (/&
+          &0.7514d0,0.8490d0,1.013d0,1.282d0,2.005d0,5.832d0/)
+      real(kind=dp) :: exponent, xlambda
     end function scatter
 
-    function XLAMBDA(LAMBDA)
+    function xlambda(lambda)
       use definitions
       use healpix_types
-      use uclpdr_module, only : start, N_GRID, L_GRID, X_GRID, X_DERIV
+      use uclpdr_module, only : start, n_grid, l_grid, x_grid, x_deriv
       real(kind=dp) :: xlambda
       real(kind=dp), intent(in) :: lambda
     end function xlambda
 
-    function LBAR(NCO,NH2)
+    function lbar(nco,nh2)
       use definitions
       use healpix_types
       real(kind=dp) :: lbar
-      real(kind=dp) :: U,W
-      real(kind=dp) :: NCO, NH2
-    end function LBAR
+      real(kind=dp) :: u,w
+      real(kind=dp) :: nco, nh2
+    end function lbar
 
 #ifdef H2FORM
 
-    FUNCTION H2_FORMATION_RATE(GAS_TEMPERATURE,GRAIN_TEMPERATURE) RESULT(RATE)
-      USE DEFINITIONS
-      USE HEALPIX_TYPES
-      IMPLICIT NONE
-      REAL(KIND=DP) :: RATE
-      REAL(KIND=DP), INTENT(IN) :: GAS_TEMPERATURE,GRAIN_TEMPERATURE
-    END FUNCTION H2_FORMATION_RATE
+    function h2_formation_rate(gas_temperature,grain_temperature) result(rate)
+      use definitions
+      use healpix_types
+      implicit none
+      real(kind=dp) :: rate
+      real(kind=dp), intent(in) :: gas_temperature,grain_temperature
+    end function h2_formation_rate
 
 #endif
 

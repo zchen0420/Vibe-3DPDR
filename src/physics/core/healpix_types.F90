@@ -25,7 +25,7 @@
 !  For more information about HEALPix see http://healpix.jpl.nasa.gov
 !
 !-----------------------------------------------------------------------------
-MODULE healpix_types
+module healpix_types
   ! This module sets the types used in the Fortran 90 modules
   ! of the HEALPIX distribution and follows the example of Numerical Recipes
   !
@@ -40,35 +40,35 @@ MODULE healpix_types
   ! Include definitions module for universal definition of DP, PR, SP
   use definitions
 
-  INTEGER, PARAMETER, public :: i8b = SELECTED_INT_KIND(16)
-  INTEGER, PARAMETER, public :: i4b = SELECTED_INT_KIND(9)
-  INTEGER, PARAMETER, public :: i2b = SELECTED_INT_KIND(4)
-  INTEGER, PARAMETER, public :: i1b = SELECTED_INT_KIND(2)
-  INTEGER, PARAMETER, public :: lgt = KIND(.TRUE.)
-  INTEGER, PARAMETER, public :: spc = KIND((1.0_sp, 1.0_sp))
-  INTEGER, PARAMETER, public :: dpc = KIND((1.0_dp, 1.0_dp))
+  integer, parameter, public :: i8b = selected_int_kind(16)
+  integer, parameter, public :: i4b = selected_int_kind(9)
+  integer, parameter, public :: i2b = selected_int_kind(4)
+  integer, parameter, public :: i1b = selected_int_kind(2)
+  integer, parameter, public :: lgt = kind(.true.)
+  integer, parameter, public :: spc = kind((1.0_sp, 1.0_sp))
+  integer, parameter, public :: dpc = kind((1.0_dp, 1.0_dp))
   !
-  INTEGER(I8B),  PARAMETER, public :: max_i8b = HUGE(1_i8b)
-  INTEGER,       PARAMETER, public :: max_i4b = HUGE(1_i4b)
-  INTEGER,       PARAMETER, public :: max_i2b = HUGE(1_i2b)
-  INTEGER,       PARAMETER, public :: max_i1b = 127
-  REAL(kind=sp), PARAMETER, public :: max_sp  = HUGE(1.0_sp)
-  REAL(kind=dp), PARAMETER, public :: max_dp  = HUGE(1.0_dp)
+  integer(i8b),  parameter, public :: max_i8b = huge(1_i8b)
+  integer,       parameter, public :: max_i4b = huge(1_i4b)
+  integer,       parameter, public :: max_i2b = huge(1_i2b)
+  integer,       parameter, public :: max_i1b = 127
+  real(kind=sp), parameter, public :: max_sp  = huge(1.0_sp)
+  real(kind=dp), parameter, public :: max_dp  = huge(1.0_dp)
 
   ! Numerical Constant (Double precision)
-  REAL(kind=dp), PARAMETER, public :: QUARTPI=0.785398163397448309615660845819875721049_dp
-  REAL(kind=dp), PARAMETER, public :: HALFPI= 1.570796326794896619231321691639751442099_dp
-  REAL(kind=dp), PARAMETER, public :: PI    = 3.141592653589793238462643383279502884197_dp
-  REAL(kind=dp), PARAMETER, public :: TWOPI = 6.283185307179586476925286766559005768394_dp
-  REAL(kind=dp), PARAMETER, public :: FOURPI=12.56637061435917295385057353311801153679_dp
-  REAL(kind=dp), PARAMETER, public :: SQRT2 = 1.41421356237309504880168872420969807856967_dp
-  REAL(kind=dp), PARAMETER, public :: SQ4PI_INV = 0.2820947917738781434740397257803862929220_dp
-  REAL(kind=dp), PARAMETER, public :: TWOTHIRD = 0.6666666666666666666666666666666666666666_dp
+  real(kind=dp), parameter, public :: quartpi=0.785398163397448309615660845819875721049_dp
+  real(kind=dp), parameter, public :: halfpi= 1.570796326794896619231321691639751442099_dp
+  real(kind=dp), parameter, public :: pi    = 3.141592653589793238462643383279502884197_dp
+  real(kind=dp), parameter, public :: twopi = 6.283185307179586476925286766559005768394_dp
+  real(kind=dp), parameter, public :: fourpi=12.56637061435917295385057353311801153679_dp
+  real(kind=dp), parameter, public :: sqrt2 = 1.41421356237309504880168872420969807856967_dp
+  real(kind=dp), parameter, public :: sq4pi_inv = 0.2820947917738781434740397257803862929220_dp
+  real(kind=dp), parameter, public :: twothird = 0.6666666666666666666666666666666666666666_dp
 
-  real(kind=DP), parameter, public :: RAD2DEG = 180.0_DP / PI
-  real(kind=DP), parameter, public :: DEG2RAD = PI / 180.0_DP
-  real(kind=SP), parameter, public :: hpx_sbadval = -1.6375e30_sp
-  real(kind=DP), parameter, public :: hpx_dbadval = -1.6375e30_dp
+  real(kind=dp), parameter, public :: rad2deg = 180.0_dp / pi
+  real(kind=dp), parameter, public :: deg2rad = pi / 180.0_dp
+  real(kind=sp), parameter, public :: hpx_sbadval = -1.6375e30_sp
+  real(kind=dp), parameter, public :: hpx_dbadval = -1.6375e30_dp
 
   ! Maximum length of filenames
   integer, parameter :: filenamelen = 1024
@@ -76,27 +76,27 @@ MODULE healpix_types
 
   ! ---- Normalisation and convention ----
   ! normalisation of spin weighted functions
-  real(kind=dp), parameter, public ::  KvS = 1.0_dp ! 1.0 : CMBFAST (Healpix 1.2)
+  real(kind=dp), parameter, public ::  kvs = 1.0_dp ! 1.0 : CMBFAST (Healpix 1.2)
   ! sign of Q
-  real(kind=dp), parameter, public :: sgQ = -1.0_dp ! -1 : CMBFAST (Healpix 1.2)
+  real(kind=dp), parameter, public :: sgq = -1.0_dp ! -1 : CMBFAST (Healpix 1.2)
   ! sign of spin weighted function !
-  real(kind=dp), parameter, public :: SW1 = -1.0_dp ! -1 : Healpix 1.2, bug correction
-  real(kind=dp), parameter, public :: iKvS = 1.0_dp / KvS  ! inverse of KvS
+  real(kind=dp), parameter, public :: sw1 = -1.0_dp ! -1 : Healpix 1.2, bug correction
+  real(kind=dp), parameter, public :: ikvs = 1.0_dp / kvs ! inverse of KvS
 
   !parameters for 3DPDR
-  real(kind=dp), parameter, public ::  KB = 1.38065040D-16 !Boltzmann constant cgs
-  real(kind=dp), parameter, public ::  C  = 2.99792458D+10 !speed of light cgs
-  real(kind=dp), parameter, public ::  MP = 1.67262164D-24 !proton mass cgs
-  real(kind=dp), parameter, public ::  HP = 6.62606896D-27 !Planck's constant cgs
-  real(kind=dp), parameter, public ::  HB = 1.05457163D-27 !Planck's constant / 2pi
-  real(kind=dp), parameter, public ::  HK = 4.79923734D-11 !Planck's constant / Boltzmann constant
-  real(kind=dp), parameter, public ::  NA = 6.02214179D+23 !Avogadro's number
-  real(kind=dp), parameter, public ::  AU = 1.66053878D-24 !atomic mass unit
-  real(kind=dp), parameter, public ::  MH = 1.67372346D-24 !hydrogen mass cgs
-  real(kind=dp), parameter, public ::  ME = 9.10938215D-28 !electron mass cgs
-  real(kind=dp), parameter, public ::  EC = 4.80320427D-10 !elementary charge in esu
-  real(kind=dp), parameter, public ::  PC = 3.08568025D+18 !pc in cm
-  real(kind=dp), parameter, public ::  EV = 1.60217646D-12 !electron volt in erg
+  real(kind=dp), parameter, public ::  kb = 1.38065040d-16 !Boltzmann constant cgs
+  real(kind=dp), parameter, public ::  c  = 2.99792458d+10 !speed of light cgs
+  real(kind=dp), parameter, public ::  mp = 1.67262164d-24 !proton mass cgs
+  real(kind=dp), parameter, public ::  hp = 6.62606896d-27 !Planck's constant cgs
+  real(kind=dp), parameter, public ::  hb = 1.05457163d-27 !Planck's constant / 2pi
+  real(kind=dp), parameter, public ::  hk = 4.79923734d-11 !Planck's constant / Boltzmann constant
+  real(kind=dp), parameter, public ::  na = 6.02214179d+23 !Avogadro's number
+  real(kind=dp), parameter, public ::  au = 1.66053878d-24 !atomic mass unit
+  real(kind=dp), parameter, public ::  mh = 1.67372346d-24 !hydrogen mass cgs
+  real(kind=dp), parameter, public ::  me = 9.10938215d-28 !electron mass cgs
+  real(kind=dp), parameter, public ::  ec = 4.80320427d-10 !elementary charge in esu
+  real(kind=dp), parameter, public ::  pc = 3.08568025d+18 !pc in cm
+  real(kind=dp), parameter, public ::  ev = 1.60217646d-12 !electron volt in erg
 
 
-END MODULE healpix_types
+end module healpix_types

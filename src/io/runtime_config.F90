@@ -16,7 +16,7 @@ contains
 
     write(6,*) 'Reading runtime%input_file [',trim(config_file),']'
     call readparams(trim(config_file))
-    runtime%turbulent_velocity=runtime%input_turbulent_velocity*1.0D5
+    runtime%turbulent_velocity=runtime%input_turbulent_velocity*1.0d5
 
     call validate_runtime_configuration
     call print_runtime_configuration
@@ -44,19 +44,19 @@ contains
 
   subroutine validate_runtime_configuration
 #ifdef PSEUDO_1D
-    if (level.gt.0) STOP "HEALPix level must be set to 0 in PSEUDO_1D mode"
+    if (level.gt.0) stop "HEALPix level must be set to 0 in PSEUDO_1D mode"
 #endif
 #ifdef PSEUDO_2D
-    if (level.gt.0) STOP "HEALPix level must be set to 0 in PSEUDO_1D mode"
+    if (level.gt.0) stop "HEALPix level must be set to 0 in PSEUDO_1D mode"
 #endif
-    if (theta_crit.ge.pi/2.0D0) stop 'theta_crit must be less than pi/2'
+    if (theta_crit.ge.pi/2.0d0) stop 'theta_crit must be less than pi/2'
   end subroutine validate_runtime_configuration
 
   subroutine print_runtime_configuration
     write(6,*) 'Input file:               ',runtime%input_file
     write(6,*) 'HEALPix level:            ',level
     write(6,*) 'Theta critical:           ',theta_crit
-    write(6,*) 'Angle between rays:       ',sqrt(pi/3.0D0/4.0D0**(real(level)))
+    write(6,*) 'Angle between rays:       ',sqrt(pi/3.0d0/4.0d0**(real(level)))
     write(6,*) 'Maxpoints                 ',maxpoints
     write(6,*) 'Guess Temperature (K):    ',runtime%temperature_guess
     write(6,*) 'Dust  Temperature (K):    ',dust_temperature
@@ -64,16 +64,16 @@ contains
     write(6,*) 'minimum density (cm^-3):  ',rho_min
     write(6,*) 'maximum density (cm^-3):  ',rho_max
 #ifdef THERMALBALANCE
-    write(6,*) 'Tlow:                     ',Tlow0
-    write(6,*) 'Thigh:                    ',Thigh0
+    write(6,*) 'Tlow:                     ',tlow0
+    write(6,*) 'Thigh:                    ',thigh0
 #endif
-    write(6,*) 'Tmin:                     ',Tmin
-    write(6,*) 'Tmax:                     ',Tmax
-    write(6,*) 'Fcrit:                    ',Fcrit
-    write(6,*) 'Tdiff:                    ',Tdiff
+    write(6,*) 'Tmin:                     ',tmin
+    write(6,*) 'Tmax:                     ',tmax
+    write(6,*) 'Fcrit:                    ',fcrit
+    write(6,*) 'Tdiff:                    ',tdiff
     start = .true.
     write(6,*) 'Form of field:            ',fieldchoice
-    write(6,*) 'Gext:                     ',Gext(1)
+    write(6,*) 'Gext:                     ',gext(1)
     write(6,*) 'AV factor:                ',runtime%av_scale
     write(6,*) 'UV factor:                ',runtime%uv_scale
 #ifdef REDUCED
@@ -91,7 +91,7 @@ contains
     write(6,*) 'Output interval / iter.:  ',runtime%output_interval
     write(6,*) 'runtime%chemistry_iterations:           ',runtime%chemistry_iterations
     write(6,*) 'runtime%cosmic_ray_ionization_rate:                     ',runtime%cosmic_ray_ionization_rate*1.3d-17
-    write(6,*) 'Gas-to-dust               ',g2d!*100.0
+    write(6,*) 'Gas-to-dust               ',g2d !*100.0
     write(6,*) 'Metallicity               ',metallicity
     write(6,*) 'Omega                     ',omega
     write(6,*) 'Grain radius              ',grain_radius

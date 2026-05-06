@@ -29,7 +29,7 @@ contains
     do point_index=1,pdr_ptot
       point_id=grid%pdr_ids(point_index)
       thermal%dust_temperature(point_index)=grid%points(point_id)%dust_temperature
-    enddo
+    end do
 #endif
 
 #ifdef THERMALBALANCE
@@ -48,7 +48,7 @@ contains
     write(6,*) 'Calculating geometry%column_density densities...'
     call calc_columndens(.true.)
 
-    start_time = 0.0D0
+    start_time = 0.0d0
 
     if (dark_ptot.gt.0) call dark_molecular_region
 
@@ -63,8 +63,8 @@ contains
     write(6,*) ''
     write(6,*) 'Calculating LTE level populations...'
 
-    relative_abundance_tolerance = 1.0D-8
-    absolute_abundance_tolerance = 1.0D-30
+    relative_abundance_tolerance = 1.0d-8
+    absolute_abundance_tolerance = 1.0d-30
 
     call cpu_time(start_time_lte)
     call run_initial_chemistry_iterations

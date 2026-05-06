@@ -2,8 +2,8 @@ module thermal_balance_module
   use definitions, only : dp
   use healpix_types, only : i4b
   use heating_rates_module, only : calculate_heating_rates, heating_rate_environment
-  use maincode_module, only : chemistry, Fcrit, first_time, grid, level_conv, pdr_ptot, &
-      &runtime, Tdiff, thermal, Tmin, Tmax
+  use maincode_module, only : chemistry, fcrit, first_time, grid, level_conv, pdr_ptot, &
+      &runtime, tdiff, thermal, tmin, tmax
   use global_module, only : all_heating
   use point_reaction_rates_module, only : calculate_point_reaction_rates
   use reaction_rates_module, only : reaction_rate_indices
@@ -37,7 +37,7 @@ contains
 
 #ifdef THERMALBALANCE
       thermal%mean_balance(point_index) = all_heating(point_index,12) - thermal%total_cooling_rate(point_index)
-      thermal%relative_balance(point_index) = 2.0D0*abs(thermal%mean_balance(point_index))/ &
+      thermal%relative_balance(point_index) = 2.0d0*abs(thermal%mean_balance(point_index))/ &
           &abs(all_heating(point_index,12) + thermal%total_cooling_rate(point_index))
 
       if (level_conv.and.first_time) then
@@ -48,112 +48,112 @@ contains
           thermal%high_temperature(point_index) = thermal%gas_temperature(point_index)
         else if (thermal%mean_balance(point_index).gt.0) then
           thermal%low_temperature(point_index) = thermal%gas_temperature(point_index)
-          thermal%gas_temperature(point_index) = 1.3D0*thermal%gas_temperature(point_index)
+          thermal%gas_temperature(point_index) = 1.3d0*thermal%gas_temperature(point_index)
           previouschange(point_index) = "H"
         else if (thermal%mean_balance(point_index).lt.0) then
           thermal%high_temperature(point_index) = thermal%gas_temperature(point_index)
-          thermal%gas_temperature(point_index) = 0.7D0*thermal%gas_temperature(point_index)
-          if (thermal%gas_temperature(point_index).lt.Tmin) thermal%gas_temperature(point_index)=Tmin
+          thermal%gas_temperature(point_index) = 0.7d0*thermal%gas_temperature(point_index)
+          if (thermal%gas_temperature(point_index).lt.tmin) thermal%gas_temperature(point_index)=tmin
           previouschange(point_index) = "C"
-        endif
+        end if
 
         thermal%previous_gas_temperature(point_index) = current_temperature
-        if (thermal%previous_gas_temperature(point_index).lt.Tmin) thermal%previous_gas_temperature(point_index)=Tmin
+        if (thermal%previous_gas_temperature(point_index).lt.tmin) thermal%previous_gas_temperature(point_index)=tmin
 
       else if (level_conv.and..not.first_time) then
         current_temperature = thermal%gas_temperature(point_index)
 
-        if (thermal%relative_balance(point_index).le.Fcrit) thermal%thermal_converged(point_index) = .true.
+        if (thermal%relative_balance(point_index).le.fcrit) thermal%thermal_converged(point_index) = .true.
 
         if (.not.dobinarychop(point_index)) then
           if (thermal%mean_balance(point_index).gt.0.and.previouschange(point_index).eq."H") then
             thermal%low_temperature(point_index) = thermal%gas_temperature(point_index)
-            thermal%gas_temperature(point_index) = 1.3D0*thermal%gas_temperature(point_index)
+            thermal%gas_temperature(point_index) = 1.3d0*thermal%gas_temperature(point_index)
             thermal%high_temperature(point_index) = thermal%gas_temperature(point_index)
             previouschange(point_index) = "H"
-          endif
+          end if
 
           if (thermal%mean_balance(point_index).lt.0.and.previouschange(point_index).eq."C") then
             thermal%high_temperature(point_index) = thermal%gas_temperature(point_index)
-            thermal%gas_temperature(point_index) = 0.7D0*thermal%gas_temperature(point_index)
+            thermal%gas_temperature(point_index) = 0.7d0*thermal%gas_temperature(point_index)
             thermal%low_temperature(point_index) = thermal%gas_temperature(point_index)
             previouschange(point_index) = "C"
-            if (thermal%gas_temperature(point_index).lt.Tmin) then
-              thermal%gas_temperature(point_index)=Tmin
-              thermal%low_temperature(point_index)=Tmin
-              thermal%high_temperature(point_index)=Tmin
-            endif
-          endif
+            if (thermal%gas_temperature(point_index).lt.tmin) then
+              thermal%gas_temperature(point_index)=tmin
+              thermal%low_temperature(point_index)=tmin
+              thermal%high_temperature(point_index)=tmin
+            end if
+          end if
 
           if (thermal%mean_balance(point_index).gt.0.and.previouschange(point_index).eq."C") then
-            thermal%gas_temperature(point_index) = (thermal%high_temperature(point_index) + thermal%low_temperature(point_index))/2.0D0
+            thermal%gas_temperature(point_index) = (thermal%high_temperature(point_index) + thermal%low_temperature(point_index))/2.0d0
             dobinarychop(point_index)=.true.
-          endif
+          end if
 
           if (thermal%mean_balance(point_index).lt.0.and.previouschange(point_index).eq."H") then
-            thermal%gas_temperature(point_index) = (thermal%high_temperature(point_index) + thermal%low_temperature(point_index))/2.0D0
+            thermal%gas_temperature(point_index) = (thermal%high_temperature(point_index) + thermal%low_temperature(point_index))/2.0d0
             dobinarychop(point_index)=.true.
-          endif
+          end if
 
         else
           if (thermal%mean_balance(point_index).gt.0) then
             thermal%low_temperature(point_index) = thermal%gas_temperature(point_index)
-            thermal%gas_temperature(point_index) = (thermal%gas_temperature(point_index) + thermal%high_temperature(point_index)) / 2.0D0
-          endif
+            thermal%gas_temperature(point_index) = (thermal%gas_temperature(point_index) + thermal%high_temperature(point_index)) / 2.0d0
+          end if
           if (thermal%mean_balance(point_index).lt.0) then
             thermal%high_temperature(point_index) = thermal%gas_temperature(point_index)
-            thermal%gas_temperature(point_index) = (thermal%gas_temperature(point_index) + thermal%low_temperature(point_index)) / 2.0D0
-          endif
-        endif
+            thermal%gas_temperature(point_index) = (thermal%gas_temperature(point_index) + thermal%low_temperature(point_index)) / 2.0d0
+          end if
+        end if
 
 #ifdef TEMP_FIX
-        if ((abs(thermal%gas_temperature(point_index)-thermal%previous_gas_temperature(point_index)).le.Tdiff).and. &
-            &(thermal%relative_balance(point_index).gt.Fcrit)) then
-          thermal%thermal_converged(point_index)=.true.
-        endif
+        if ((abs(thermal%gas_temperature(point_index)-thermal%previous_gas_temperature(point_index)).le.tdiff).and. &
+            &(thermal%relative_balance(point_index).gt.fcrit)) then
+        thermal%thermal_converged(point_index)=.true.
+      end if
 #endif
 
-        thermal%previous_gas_temperature(point_index) = current_temperature
+      thermal%previous_gas_temperature(point_index) = current_temperature
 
-        if ((current_temperature.lt.Tmin).and.(thermal%mean_balance(point_index).lt.0)) thermal%thermal_converged(point_index)=.true.
-        if ((current_temperature.gt.Tmax).and.(thermal%mean_balance(point_index).gt.0)) thermal%thermal_converged(point_index)=.true.
+      if ((current_temperature.lt.tmin).and.(thermal%mean_balance(point_index).lt.0)) thermal%thermal_converged(point_index)=.true.
+      if ((current_temperature.gt.tmax).and.(thermal%mean_balance(point_index).gt.0)) thermal%thermal_converged(point_index)=.true.
 
-        if (thermal%thermal_converged(point_index)) then
-          if (current_temperature.lt.Tmin) then
-            thermal%previous_gas_temperature(point_index) = Tmin
-            thermal%gas_temperature(point_index) = Tmin
-            if (thermal%force_level_minimum(point_index)) then
-              thermal%thermal_converged(point_index)=.true.
-            else
-              thermal%thermal_converged(point_index)=.false.
-              thermal%level_population_converged(point_index)=.false.
-              current_temperature=Tmin
-            endif
-            thermal%force_level_minimum(point_index)=.true.
-          endif
+      if (thermal%thermal_converged(point_index)) then
+        if (current_temperature.lt.tmin) then
+          thermal%previous_gas_temperature(point_index) = tmin
+          thermal%gas_temperature(point_index) = tmin
+          if (thermal%force_level_minimum(point_index)) then
+            thermal%thermal_converged(point_index)=.true.
+          else
+            thermal%thermal_converged(point_index)=.false.
+            thermal%level_population_converged(point_index)=.false.
+            current_temperature=tmin
+          end if
+          thermal%force_level_minimum(point_index)=.true.
+        end if
 
-          if (current_temperature.gt.Tmax) then
-            thermal%previous_gas_temperature(point_index) = Tmax
-            thermal%gas_temperature(point_index) = Tmax
-          endif
-        endif
-      endif
+        if (current_temperature.gt.tmax) then
+          thermal%previous_gas_temperature(point_index) = tmax
+          thermal%gas_temperature(point_index) = tmax
+        end if
+      end if
+    end if
 #endif
-    enddo
-  end subroutine calculate_heating_and_temperature_updates
+  end do
+end subroutine calculate_heating_and_temperature_updates
 
-  subroutine set_heating_environment(point_index, point_id, environment)
-    integer(kind=i4b), intent(in) :: point_index
-    integer(kind=i4b), intent(in) :: point_id
-    type(heating_rate_environment), intent(out) :: environment
+subroutine set_heating_environment(point_index, point_id, environment)
+  integer(kind=i4b), intent(in) :: point_index
+  integer(kind=i4b), intent(in) :: point_id
+  type(heating_rate_environment), intent(out) :: environment
 
-    environment%density = grid%points(point_id)%rho
-    environment%gas_temperature = thermal%gas_temperature(point_index)
-    environment%dust_temperature = thermal%dust_temperature(point_index)
-    environment%uv_field = grid%points(point_id)%UVfield
-    environment%turbulent_velocity = runtime%turbulent_velocity
-    environment%abundance => grid%points(point_id)%abundance
-    environment%reaction_rate => chemistry%rate
-  end subroutine set_heating_environment
+  environment%density = grid%points(point_id)%rho
+  environment%gas_temperature = thermal%gas_temperature(point_index)
+  environment%dust_temperature = thermal%dust_temperature(point_index)
+  environment%uv_field = grid%points(point_id)%uvfield
+  environment%turbulent_velocity = runtime%turbulent_velocity
+  environment%abundance => grid%points(point_id)%abundance
+  environment%reaction_rate => chemistry%rate
+end subroutine set_heating_environment
 
 end module thermal_balance_module

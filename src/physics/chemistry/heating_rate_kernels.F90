@@ -25,7 +25,7 @@ contains
     real(kind=dp), intent(in) :: cosmic_ray_ionization_rate, density, h2_abundance
     real(kind=dp) :: heating_rate
 
-    heating_rate=(9.4D0*ev)*(1.3D-17*cosmic_ray_ionization_rate)*density*h2_abundance
+    heating_rate=(9.4d0*ev)*(1.3d-17*cosmic_ray_ionization_rate)*density*h2_abundance
   end function cosmic_ray_heating_rate
 
   function turbulent_heating_rate(turbulent_velocity, density) result(heating_rate)
@@ -33,8 +33,8 @@ contains
     real(kind=dp) :: heating_rate
     real(kind=dp) :: turbulent_scale
 
-    turbulent_scale=5.0D0
-    heating_rate=3.5D-28*((turbulent_velocity/1.0D5)**3)*(1.0D0/turbulent_scale)*density
+    turbulent_scale=5.0d0
+    heating_rate=3.5d-28*((turbulent_velocity/1.0d5)**3)*(1.0d0/turbulent_scale)*density
   end function turbulent_heating_rate
 
   function gas_grain_exchange_rate(density, gas_temperature, dust_temperature) result(heating_rate)
@@ -42,16 +42,16 @@ contains
     real(kind=dp) :: heating_rate
     real(kind=dp) :: accommodation, grain_density, grain_cross_section
 
-    accommodation=0.35D0*exp(-sqrt((dust_temperature+gas_temperature)/5.0D2))+0.1D0
-    grain_density=1.998D-12*density*metallicity*100.0D0/g2d
+    accommodation=0.35d0*exp(-sqrt((dust_temperature+gas_temperature)/5.0d2))+0.1d0
+    grain_density=1.998d-12*density*metallicity*100.0d0/g2d
     grain_cross_section=pi*grain_radius**2
-    heating_rate=4.003D-12*density*grain_density*grain_cross_section*accommodation*sqrt(gas_temperature) &
+    heating_rate=4.003d-12*density*grain_density*grain_cross_section*accommodation*sqrt(gas_temperature) &
         & *(dust_temperature-gas_temperature)
   end function gas_grain_exchange_rate
 
   subroutine store_heating_rates(heating_rate, dust_photoelectric, pah_photoelectric, weingartner, &
-      & carbon_ionization, h2_formation, h2_photodissociation, fuv_pumping, cosmic_ray, turbulent, &
-      & chemical, gas_grain, total)
+        & carbon_ionization, h2_formation, h2_photodissociation, fuv_pumping, cosmic_ray, turbulent, &
+        & chemical, gas_grain, total)
     real(kind=dp), intent(out) :: heating_rate(1:12)
     real(kind=dp), intent(in) :: dust_photoelectric, pah_photoelectric, weingartner
     real(kind=dp), intent(in) :: carbon_ionization, h2_formation, h2_photodissociation

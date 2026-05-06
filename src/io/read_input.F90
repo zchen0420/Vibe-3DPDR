@@ -1,5 +1,5 @@
 module coolant_input_module
-  use coolants_module, only : COLLISION_PARTNER_COUNT, coolant_data
+  use coolants_module, only : collision_partner_count, coolant_data
   use healpix_types, only : c, dp, hp, i4b, kb
   implicit none
 
@@ -37,21 +37,21 @@ contains
       read(input_unit,*) i, energy, weight
       coolant_table%energies(i) = energy*c*hp
       coolant_table%weights(i) = weight
-    enddo
+    end do
 
     read(input_unit,*)
     read(input_unit,*) line_count
     read(input_unit,*)
     do line_index=1,line_count
       read(input_unit,*) line_id, i, j, einstein_a, frequency
-      coolant_table%frequencies(i,j) = frequency*1.0D9
+      coolant_table%frequencies(i,j) = frequency*1.0d9
       coolant_table%frequencies(j,i) = coolant_table%frequencies(i,j)
       coolant_table%a_coeffs(i,j) = einstein_a
       coolant_table%b_coeffs(i,j) = coolant_table%a_coeffs(i,j) &
-          &/(2.0D0*hp*(coolant_table%frequencies(i,j)**3)/(c**2))
+          &/(2.0d0*hp*(coolant_table%frequencies(i,j)**3)/(c**2))
       coolant_table%b_coeffs(j,i) = coolant_table%b_coeffs(i,j) &
           &*(coolant_table%weights(i)/coolant_table%weights(j))
-    enddo
+    end do
 
     call fill_missing_transition_frequencies(coolant_table)
 
@@ -69,10 +69,10 @@ contains
       if (temperature_count.gt.coolant_table%ntemperatures) then
         write(6,*) 'ERROR! Too many temperature values (>NTEMP):', temperature_count
         stop
-      endif
+      end if
 
       call read_collision_partner(input_unit, partner_id, collision_count, temperature_count, coolant_table)
-    enddo
+    end do
 
     close(input_unit)
     write(6,*) 'Cooling datafile: ',trim(coolant_table%input_file),' read successfully'
@@ -81,13 +81,13 @@ contains
   subroutine clear_coolant_table(coolant_table)
     type(coolant_data), intent(inout) :: coolant_table
 
-    coolant_table%energies = 0.0D0
-    coolant_table%weights = 0.0D0
-    coolant_table%a_coeffs = 0.0D0
-    coolant_table%b_coeffs = 0.0D0
-    coolant_table%frequencies = 0.0D0
-    coolant_table%collision_temperatures = 0.0D0
-    coolant_table%collision_rates = 0.0D0
+    coolant_table%energies = 0.0d0
+    coolant_table%weights = 0.0d0
+    coolant_table%a_coeffs = 0.0d0
+    coolant_table%b_coeffs = 0.0d0
+    coolant_table%frequencies = 0.0d0
+    coolant_table%collision_temperatures = 0.0d0
+    coolant_table%collision_rates = 0.0d0
   end subroutine clear_coolant_table
 
   subroutine fill_missing_transition_frequencies(coolant_table)
@@ -99,26 +99,26 @@ contains
     do i=1,coolant_table%nlevels
       do j=1,coolant_table%nlevels
         calculated_frequency = abs(coolant_table%energies(i)-coolant_table%energies(j))/hp
-        if (coolant_table%frequencies(i,j).ne.0.0D0) then
-          if (abs(calculated_frequency-coolant_table%frequencies(i,j))/coolant_table%frequencies(i,j).gt.1.0D-2) then
+        if (coolant_table%frequencies(i,j).ne.0.0d0) then
+          if (abs(calculated_frequency-coolant_table%frequencies(i,j))/coolant_table%frequencies(i,j).gt.1.0d-2) then
             write(6,*) 'ERROR! Calculated frequency differs by >1%:'
             write(6,*) calculated_frequency,' Hz vs',coolant_table%frequencies(i,j),' Hz'
             stop
-          endif
+          end if
         else
           coolant_table%frequencies(i,j) = calculated_frequency
-        endif
-      enddo
-    enddo
+        end if
+      end do
+    end do
   end subroutine fill_missing_transition_frequencies
 
   subroutine assert_valid_collision_partner(partner_id)
     integer(kind=i4b), intent(in) :: partner_id
 
-    if (partner_id.lt.1 .or. partner_id.gt.COLLISION_PARTNER_COUNT) then
+    if (partner_id.lt.1 .or. partner_id.gt.collision_partner_count) then
       write(6,*) 'ERROR! Unrecognized collision partner ID:', partner_id
       stop
-    endif
+    end if
   end subroutine assert_valid_collision_partner
 
   subroutine read_collision_partner(input_unit, partner_id, collision_count, temperature_count, coolant_table)
@@ -148,8 +148,8 @@ contains
         coolant_table%collision_rates(partner_id,upper_level,lower_level,temperature_index) = &
             &coefficients(temperature_index)
         call fill_reverse_collision_rate(coolant_table, partner_id, upper_level, lower_level, temperature_index)
-      enddo
-    enddo
+      end do
+    end do
   end subroutine read_collision_partner
 
   subroutine fill_reverse_collision_rate(coolant_table, partner_id, upper_level, lower_level, temperature_index)
@@ -163,8 +163,8 @@ contains
     real(kind=dp) :: excitation_factor
 
     downward_rate = coolant_table%collision_rates(partner_id,upper_level,lower_level,temperature_index)
-    if (downward_rate.eq.0.0D0) return
-    if (coolant_table%collision_rates(partner_id,lower_level,upper_level,temperature_index).ne.0.0D0) return
+    if (downward_rate.eq.0.0d0) return
+    if (coolant_table%collision_rates(partner_id,lower_level,upper_level,temperature_index).ne.0.0d0) return
 
     excitation_factor = (coolant_table%weights(upper_level)/coolant_table%weights(lower_level)) &
         &*exp(-(coolant_table%energies(upper_level)-coolant_table%energies(lower_level)) &
