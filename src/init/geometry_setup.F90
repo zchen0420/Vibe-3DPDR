@@ -1,12 +1,13 @@
 module geometry_setup_module
   use healpix_types
   use healpix_module
+  use geometry_state_module, only : allocate_ray_geometry
   use maincode_module
 
 contains
 
   subroutine initialise_pdr_order
-    call heapsort(pdr_ptot,rrb,rra)
+    call heapsort(pdr_ptot,geometry%point_order,geometry%radial_order)
   end subroutine initialise_pdr_order
 
   subroutine initialise_healpix_geometry
@@ -16,20 +17,22 @@ contains
 
     allocate(vector(1:3))
     allocate(vertex(1:3,1:4))
-    allocate(vectors(1:3,0:nrays-1))
+    call allocate_ray_geometry(geometry, nrays)
 
     call mk_xy2pix
     call build_healpix_vectors
   end subroutine initialise_healpix_geometry
 
   subroutine build_healpix_vectors
-    write(6,*) 'Building HEALPix vectors...'
+    integer(kind=i4b) :: ray_number, pixel_index
+
+    write(6,*) 'Building HEALPix geometry%ray_vectors...'
     open(unit=77,file='HEALPix_vectors.dat',status='replace')
-    do i=1,nrays
-      ipix=i-1 !ipix is the ID of a HEALPix ray. Runs with values 0:nrays-1
-      call pix2vec_nest(nside,ipix,pix2x,pix2y,vector,vertex)
-      vectors(1:3,ipix)=vector(1:3) !Store in memory
-      write(77,'(3ES11.3,I7)') vectors(1:3,ipix),ipix
+    do ray_number=1,nrays
+      pixel_index=ray_number-1 !pixel_index is the ID of a HEALPix ray. Runs with values 0:nrays-1
+      call pix2vec_nest(nside,pixel_index,pix2x,pix2y,vector,vertex)
+      geometry%ray_vectors(1:3,pixel_index)=vector(1:3) !Store in memory
+      write(77,'(3ES11.3,I7)') geometry%ray_vectors(1:3,pixel_index),pixel_index
     enddo
     close(77)
 
@@ -37,6 +40,8 @@ contains
   end subroutine build_healpix_vectors
 
   subroutine build_evaluation_geometry
+    real :: evaluation_time
+
     write(6,*) 'Building evaluation points...'
     call evaluation_points
 
@@ -44,38 +49,40 @@ contains
     call trim_boundary_evaluation_points
 #endif
 
-    call cpu_time(time_evalpoints)
-    write(6,*) 'Time = ',time_evalpoints,' seconds'
+    call cpu_time(evaluation_time)
+    write(6,*) 'Time = ',evaluation_time,' seconds'
 
     call update_maxpoints_from_evaluation_geometry
   end subroutine build_evaluation_geometry
 
   subroutine trim_boundary_evaluation_points
+    integer(kind=i4b) :: point_id, point_index
     integer(kind=i4b) :: ray_index
 
     write(6,*) 'subtracting 1 evaluation point in raytype(j)=-2'
-    do pp=1,pdr_ptot
-      p=IDlist_pdr(pp)
+    do point_index=1,pdr_ptot
+      point_id=grid%pdr_ids(point_index)
       do ray_index=0,nrays-1
-        if (pdr(p)%epray(ray_index).eq.0) cycle
-        if (pdr(p)%raytype(ray_index).eq.-2) pdr(p)%epray(ray_index)=pdr(p)%epray(ray_index)-1
+        if (grid%points(point_id)%epray(ray_index).eq.0) cycle
+        if (grid%points(point_id)%raytype(ray_index).eq.-2) grid%points(point_id)%epray(ray_index)=grid%points(point_id)%epray(ray_index)-1
       enddo
     enddo
   end subroutine trim_boundary_evaluation_points
 
   subroutine update_maxpoints_from_evaluation_geometry
+    integer(kind=i4b) :: point_id, point_index
     integer(kind=i4b) :: newmaxpoints
 
     maxpoints = 0
-    do pp=1,pdr_ptot
-      p=IDlist_pdr(pp)
-      newmaxpoints = maxval(pdr(p)%epray)
+    do point_index=1,pdr_ptot
+      point_id=grid%pdr_ids(point_index)
+      newmaxpoints = maxval(grid%points(point_id)%epray)
       if (newmaxpoints.gt.maxpoints) maxpoints = newmaxpoints
     enddo
 
     if (dark_ptot.gt.0) then
-      p=IDlist_dark(1)
-      newmaxpoints = maxval(pdr(p)%epray)
+      point_id=grid%dark_ids(1)
+      newmaxpoints = maxval(grid%points(point_id)%epray)
       if (newmaxpoints.gt.maxpoints) maxpoints = newmaxpoints
     endif
 

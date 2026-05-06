@@ -6,28 +6,29 @@ module initial_conditions_module
 contains
 
   subroutine initialise_temperatures
-    dusttemperature = dust_temperature
+    thermal%dust_temperature = dust_temperature
 
 #ifndef GUESS_TEMP
-    gastemperature = Tguess
-    previousgastemperature = Tguess
+    thermal%gas_temperature = runtime%temperature_guess
+    thermal%previous_gas_temperature = runtime%temperature_guess
 #ifdef THERMALBALANCE
-    Tlow = Tlow0
-    Thigh = Thigh0
+    thermal%low_temperature = Tlow0
+    thermal%high_temperature = Thigh0
 #endif
 #endif
   end subroutine initialise_temperatures
 
   subroutine initialise_particle_abundances
+    integer(kind=i4b) :: point_id
     integer(kind=i4b) :: species_index
 
-    do p=1,grand_ptot
-      allocate(pdr(p)%abundance(1:nspec))
+    do point_id=1,grand_ptot
+      allocate(grid%points(point_id)%abundance(1:nspec))
       do species_index=1,nspec
-        if (species(species_index).eq.'H2'.OR.species(species_index).eq.'H'.OR.species(species_index).eq.'He') then
-          pdr(p)%abundance(species_index) = dummyabundance(species_index)
+        if (chemistry%network%species(species_index).eq.'H2'.OR.chemistry%network%species(species_index).eq.'H'.OR.chemistry%network%species(species_index).eq.'He') then
+          grid%points(point_id)%abundance(species_index) = chemistry%network%initial_abundance(species_index)
         else
-          pdr(p)%abundance(species_index) = dummyabundance(species_index)*metallicity
+          grid%points(point_id)%abundance(species_index) = chemistry%network%initial_abundance(species_index)*metallicity
         endif
       enddo
     enddo

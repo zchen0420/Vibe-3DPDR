@@ -38,46 +38,46 @@ SUBROUTINE READ_SPECIES(NSPEC,SPECIES,ABUNDANCE,MASS)
   !C     Initialize all the species index labels. If they are not assigned
   !C     subsequently, any attempt to access that species will generate an
   !C     error and the code will crash. This is a useful bug catch.
-  NH=0
-  ND=0
-  NH2=0
-  NHD=0
-  NH2x=0
-  NPROTON=0
-  NC=0
-  NCx=0
-  NO=0
-  NOx=0
-  NN=0
-  NNx=0
-  NS=0
-  NSx=0
-  NHE=0
-  NHEx=0
-  NNA=0
-  NNAx=0
-  NMG=0
-  NMGx=0
-  NSI=0
-  NSIx=0
-  NFE=0
-  NFEx=0
-  NCL=0
-  NCLx=0
-  NCA=0
-  NCAx=0
-  NCAxx=0
-  NCO=0
-  NCH=0
-  NCH2=0
-  NOH=0
-  NO2=0
-  NCS=0
-  NH2O=0
+  species_idx%NH=0
+  species_idx%ND=0
+  species_idx%NH2=0
+  species_idx%NHD=0
+  species_idx%NH2x=0
+  species_idx%NPROTON=0
+  species_idx%NC=0
+  species_idx%NCx=0
+  species_idx%NO=0
+  species_idx%NOx=0
+  species_idx%NN=0
+  species_idx%NNx=0
+  species_idx%NS=0
+  species_idx%NSx=0
+  species_idx%NHe=0
+  species_idx%NHEx=0
+  species_idx%NNA=0
+  species_idx%NNAx=0
+  species_idx%NMG=0
+  species_idx%NMGx=0
+  species_idx%NSI=0
+  species_idx%NSIx=0
+  species_idx%NFE=0
+  species_idx%NFEx=0
+  species_idx%NCL=0
+  species_idx%NCLx=0
+  species_idx%NCA=0
+  species_idx%NCAx=0
+  species_idx%NCAxx=0
+  species_idx%NCO=0
+  species_idx%NCH=0
+  species_idx%NCH2=0
+  species_idx%NOH=0
+  species_idx%NO2=0
+  species_idx%NCS=0
+  species_idx%NH2O=0
   NELECT=0
-  NH3x=0
-  NH3Ox=0
-  NHCOx=0
+  species_idx%NH3x=0
+  species_idx%NH3Ox=0
+  species_idx%NHCOx=0
 #ifdef REDUCED
   OPEN(SPECIESFILE,FILE="data/species_reduced.d",STATUS="OLD")
 #endif
@@ -92,60 +92,60 @@ SUBROUTINE READ_SPECIES(NSPEC,SPECIES,ABUNDANCE,MASS)
     READ(SPECIESFILE,*,END=1) INDEX,SPECIES(I),ABUNDANCE(I),MASS(I)
 
     !C        Assign the various index labels to their correct species.
-    IF(SPECIES(I).EQ."H         ") NH      = I
-    IF(SPECIES(I).EQ."D         ") ND      = I
-    IF(SPECIES(I).EQ."H2        ") NH2     = I
-    IF(SPECIES(I).EQ."HD        ") NHD     = I
-    IF(SPECIES(I).EQ."H2+       ") NH2x    = I
-    IF(SPECIES(I).EQ."H3+       ") NH3x    = I
-    IF(SPECIES(I).EQ."H+        ") NPROTON = I
-    IF(SPECIES(I).EQ."C         ") NC      = I
-    IF(SPECIES(I).EQ."C+        ") NCx     = I
-    IF(SPECIES(I).EQ."O         ") NO      = I
-    IF(SPECIES(I).EQ."O+        ") NOx     = I
-    IF(SPECIES(I).EQ."N         ") NN      = I
-    IF(SPECIES(I).EQ."N+        ") NNx     = I
-    IF(SPECIES(I).EQ."S         ") NS      = I
-    IF(SPECIES(I).EQ."S+        ") NSx     = I
-    IF(SPECIES(I).EQ."He        ") NHE     = I
-    IF(SPECIES(I).EQ."HE        ") NHE     = I
-    IF(SPECIES(I).EQ."He+       ") NHEx    = I
-    IF(SPECIES(I).EQ."HE+       ") NHEx    = I
-    IF(SPECIES(I).EQ."Na        ") NNA     = I
-    IF(SPECIES(I).EQ."NA        ") NNA     = I
-    IF(SPECIES(I).EQ."Na+       ") NNAx    = I
-    IF(SPECIES(I).EQ."NA+       ") NNAx    = I
-    IF(SPECIES(I).EQ."Mg        ") NMG     = I
-    IF(SPECIES(I).EQ."MG        ") NMG     = I
-    IF(SPECIES(I).EQ."Mg+       ") NMGx    = I
-    IF(SPECIES(I).EQ."MG+       ") NMGx    = I
-    IF(SPECIES(I).EQ."Si        ") NSI     = I
-    IF(SPECIES(I).EQ."SI        ") NSI     = I
-    IF(SPECIES(I).EQ."Si+       ") NSIx    = I
-    IF(SPECIES(I).EQ."SI+       ") NSIx    = I
-    IF(SPECIES(I).EQ."Fe        ") NFE     = I
-    IF(SPECIES(I).EQ."FE        ") NFE     = I
-    IF(SPECIES(I).EQ."Fe+       ") NFEx    = I
-    IF(SPECIES(I).EQ."FE+       ") NFEx    = I
-    IF(SPECIES(I).EQ."Cl        ") NCL     = I
-    IF(SPECIES(I).EQ."CL        ") NCL     = I
-    IF(SPECIES(I).EQ."Cl+       ") NCLx    = I
-    IF(SPECIES(I).EQ."CL+       ") NCLx    = I
-    IF(SPECIES(I).EQ."Ca        ") NCA     = I
-    IF(SPECIES(I).EQ."CA        ") NCA     = I
-    IF(SPECIES(I).EQ."Ca+       ") NCAx    = I
-    IF(SPECIES(I).EQ."CA+       ") NCAx    = I
-    IF(SPECIES(I).EQ."Ca++      ") NCAxx   = I
-    IF(SPECIES(I).EQ."CA++      ") NCAxx   = I
-    IF(SPECIES(I).EQ."CO        ") NCO     = I
-    IF(SPECIES(I).EQ."CH        ") NCH     = I
-    IF(SPECIES(I).EQ."CH2       ") NCH2    = I
-    IF(SPECIES(I).EQ."OH        ") NOH     = I
-    IF(SPECIES(I).EQ."O2        ") NO2     = I
-    IF(SPECIES(I).EQ."CS        ") NCS     = I
-    IF(SPECIES(I).EQ."H2O       ") NH2O    = I
-    IF(SPECIES(I).EQ."H3O+      ") NH3Ox   = I
-    IF(SPECIES(I).EQ."HCO+      ") NHCOx   = I
+    IF(SPECIES(I).EQ."H         ") species_idx%NH      = I
+    IF(SPECIES(I).EQ."D         ") species_idx%ND      = I
+    IF(SPECIES(I).EQ."H2        ") species_idx%NH2     = I
+    IF(SPECIES(I).EQ."HD        ") species_idx%NHD     = I
+    IF(SPECIES(I).EQ."H2+       ") species_idx%NH2x    = I
+    IF(SPECIES(I).EQ."H3+       ") species_idx%NH3x    = I
+    IF(SPECIES(I).EQ."H+        ") species_idx%NPROTON = I
+    IF(SPECIES(I).EQ."C         ") species_idx%NC      = I
+    IF(SPECIES(I).EQ."C+        ") species_idx%NCx     = I
+    IF(SPECIES(I).EQ."O         ") species_idx%NO      = I
+    IF(SPECIES(I).EQ."O+        ") species_idx%NOx     = I
+    IF(SPECIES(I).EQ."N         ") species_idx%NN      = I
+    IF(SPECIES(I).EQ."N+        ") species_idx%NNx     = I
+    IF(SPECIES(I).EQ."S         ") species_idx%NS      = I
+    IF(SPECIES(I).EQ."S+        ") species_idx%NSx     = I
+    IF(SPECIES(I).EQ."He        ") species_idx%NHe     = I
+    IF(SPECIES(I).EQ."HE        ") species_idx%NHe     = I
+    IF(SPECIES(I).EQ."He+       ") species_idx%NHEx    = I
+    IF(SPECIES(I).EQ."HE+       ") species_idx%NHEx    = I
+    IF(SPECIES(I).EQ."Na        ") species_idx%NNA     = I
+    IF(SPECIES(I).EQ."NA        ") species_idx%NNA     = I
+    IF(SPECIES(I).EQ."Na+       ") species_idx%NNAx    = I
+    IF(SPECIES(I).EQ."NA+       ") species_idx%NNAx    = I
+    IF(SPECIES(I).EQ."Mg        ") species_idx%NMG     = I
+    IF(SPECIES(I).EQ."MG        ") species_idx%NMG     = I
+    IF(SPECIES(I).EQ."Mg+       ") species_idx%NMGx    = I
+    IF(SPECIES(I).EQ."MG+       ") species_idx%NMGx    = I
+    IF(SPECIES(I).EQ."Si        ") species_idx%NSI     = I
+    IF(SPECIES(I).EQ."SI        ") species_idx%NSI     = I
+    IF(SPECIES(I).EQ."Si+       ") species_idx%NSIx    = I
+    IF(SPECIES(I).EQ."SI+       ") species_idx%NSIx    = I
+    IF(SPECIES(I).EQ."Fe        ") species_idx%NFE     = I
+    IF(SPECIES(I).EQ."FE        ") species_idx%NFE     = I
+    IF(SPECIES(I).EQ."Fe+       ") species_idx%NFEx    = I
+    IF(SPECIES(I).EQ."FE+       ") species_idx%NFEx    = I
+    IF(SPECIES(I).EQ."Cl        ") species_idx%NCL     = I
+    IF(SPECIES(I).EQ."CL        ") species_idx%NCL     = I
+    IF(SPECIES(I).EQ."Cl+       ") species_idx%NCLx    = I
+    IF(SPECIES(I).EQ."CL+       ") species_idx%NCLx    = I
+    IF(SPECIES(I).EQ."Ca        ") species_idx%NCA     = I
+    IF(SPECIES(I).EQ."CA        ") species_idx%NCA     = I
+    IF(SPECIES(I).EQ."Ca+       ") species_idx%NCAx    = I
+    IF(SPECIES(I).EQ."CA+       ") species_idx%NCAx    = I
+    IF(SPECIES(I).EQ."Ca++      ") species_idx%NCAxx   = I
+    IF(SPECIES(I).EQ."CA++      ") species_idx%NCAxx   = I
+    IF(SPECIES(I).EQ."CO        ") species_idx%NCO     = I
+    IF(SPECIES(I).EQ."CH        ") species_idx%NCH     = I
+    IF(SPECIES(I).EQ."CH2       ") species_idx%NCH2    = I
+    IF(SPECIES(I).EQ."OH        ") species_idx%NOH     = I
+    IF(SPECIES(I).EQ."O2        ") species_idx%NO2     = I
+    IF(SPECIES(I).EQ."CS        ") species_idx%NCS     = I
+    IF(SPECIES(I).EQ."H2O       ") species_idx%NH2O    = I
+    IF(SPECIES(I).EQ."H3O+      ") species_idx%NH3Ox   = I
+    IF(SPECIES(I).EQ."HCO+      ") species_idx%NHCOx   = I
     IF(SPECIES(I).EQ."e-        ") NELECT  = I
     IF(SPECIES(I).EQ."ELECTR    ") NELECT  = I
   ENDDO
@@ -169,24 +169,24 @@ ENDIF
 
 !C     Check that the total hydrogen nuclei abundance adds up to 1.
 !C     If not, modify the abundance of H2 (only consider H, H+ & H2)
-IF((ABUNDANCE(NH)+ABUNDANCE(NPROTON)+2.0D0*ABUNDANCE(NH2)).NE.1.0D0) THEN
-  ABUNDANCE(NH2)=0.5D0*(1.0D0-ABUNDANCE(NH)-ABUNDANCE(NPROTON))
+IF((ABUNDANCE(species_idx%NH)+ABUNDANCE(species_idx%NPROTON)+2.0D0*ABUNDANCE(species_idx%NH2)).NE.1.0D0) THEN
+  ABUNDANCE(species_idx%NH2)=0.5D0*(1.0D0-ABUNDANCE(species_idx%NH)-ABUNDANCE(species_idx%NPROTON))
 ENDIF
 
 !C     Calculate the intial electron abundance, if not
 !C     specified, as the sum of the metal ion abundances
 IF(ABUNDANCE(NELECT).LE.0.0D0) THEN
   ABUNDANCE(NELECT)=0.0D0
-  IF(NCx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(NCx)
-  IF(NSx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(NSx)
-  IF(NNAx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(NNAx)
-  IF(NMGx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(NMGx)
-  IF(NSIx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(NSIx)
-  IF(NFEx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(NFEx)
-  IF(NCLx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(NCLx)
-  IF(NCAx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(NCAx)
-  IF(NCAxx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+2.0D0*ABUNDANCE(NCAxx)
-  IF(NPROTON.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(NPROTON)
+  IF(species_idx%NCx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NCx)
+  IF(species_idx%NSx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NSx)
+  IF(species_idx%NNAx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NNAx)
+  IF(species_idx%NMGx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NMGx)
+  IF(species_idx%NSIx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NSIx)
+  IF(species_idx%NFEx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NFEx)
+  IF(species_idx%NCLx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NCLx)
+  IF(species_idx%NCAx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NCAx)
+  IF(species_idx%NCAxx.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+2.0D0*ABUNDANCE(species_idx%NCAxx)
+  IF(species_idx%NPROTON.NE.0) ABUNDANCE(NELECT)=ABUNDANCE(NELECT)+ABUNDANCE(species_idx%NPROTON)
 ENDIF
 
 CLOSE(SPECIESFILE)

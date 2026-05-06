@@ -1,24 +1,45 @@
 module level_population_solver_module
-  use definitions
-  use maincode_module
-  use global_module
+  use definitions, only : dp
+  use healpix_types, only : i4b
+  use coolants_module, only : COOLANT_COUNT, COOLANT_CII, COOLANT_CI, COOLANT_OI, COOLANT_C12O
+  use maincode_module, only : coolant, coolant_iteration, grid, levpop_iteration, maxpoints, nrays, pdr_ptot, runtime, thermal
+  use global_module, only : metallicity, NELECT, species_idx
   use convergence_module, only : set_lte_populations
+  use level_population_system_module, only : solve_statistical_equilibrium
+  use ray_path_module, only : projected_point_id, set_ray_origin_projection
 
   implicit none
+
+  type coolant_work_item
+    integer(kind=i4b) :: coolant_id
+    integer(kind=i4b) :: species_abundance_index
+    integer(kind=i4b) :: level_count
+    integer(kind=i4b) :: temperature_count
+    real(kind=dp), allocatable :: collision_coefficients(:,:)
+    real(kind=dp), allocatable :: transition(:,:)
+    real(kind=dp), allocatable :: line(:,:)
+    real(kind=dp), allocatable :: optical_depth(:,:,:)
+    real(kind=dp), allocatable :: beta(:,:,:)
+    real(kind=dp), allocatable :: solution(:)
+    real(kind=dp), allocatable :: evalpop(:,:,:)
+  end type coolant_work_item
 
 contains
 
   subroutine set_initial_lte_populations
-    do pp=1,pdr_ptot
-      p=IDlist_pdr(pp)
-      call set_lte_populations(p, gastemperature(pp), pdr(p)%rho)
+    integer(kind=i4b) :: point_id, point_index
+    real(kind=dp) :: partition_functions(4)
+
+    do point_index=1,pdr_ptot
+      point_id=grid%pdr_ids(point_index)
+      call set_lte_populations(point_id, thermal%gas_temperature(point_index), grid%points(point_id)%rho, partition_functions)
 #ifndef GUESS_TEMP
-      if (pp.eq.1) then
+      if (point_index.eq.1) then
         write(6,*) ''
-        write(6,*) 'Z(CII)  = ',CII_Z_FUNCTION
-        write(6,*) 'Z(CI)   = ',CI_Z_FUNCTION
-        write(6,*) 'Z(OI)   = ',OI_Z_FUNCTION
-        write(6,*) 'Z(C12O) = ',C12O_Z_FUNCTION
+        write(6,*) 'Z(CII)  = ',partition_functions(1)
+        write(6,*) 'Z(CI)   = ',partition_functions(2)
+        write(6,*) 'Z(OI)   = ',partition_functions(3)
+        write(6,*) 'Z(C12O) = ',partition_functions(4)
         write(6,*) ''
       endif
 #endif
@@ -30,285 +51,210 @@ contains
     integer(kind=i4b) :: point_id
 
     do point_index=1,pdr_ptot
-      point_id=IDlist_pdr(point_index)
+      point_id=grid%pdr_ids(point_index)
 #ifdef THERMALBALANCE
-      if (level_converged(point_index).or.converged(point_index)) cycle
+      if (thermal%level_population_converged(point_index).or.thermal%thermal_converged(point_index)) cycle
 #else
-      if (level_converged(point_index)) cycle
+      if (thermal%level_population_converged(point_index)) cycle
 #endif
-      call set_lte_populations(point_id, gastemperature(point_index), pdr(point_id)%rho)
+      call set_lte_populations(point_id, thermal%gas_temperature(point_index), grid%points(point_id)%rho)
     enddo
   end subroutine refresh_lte_populations_for_unconverged_points
 
-  subroutine solve_level_populations_lvg
+  subroutine initialize_coolant_work(work_item, coolant_id, species_abundance_index)
+    type(coolant_work_item), intent(out) :: work_item
+    integer(kind=i4b), intent(in) :: coolant_id
+    integer(kind=i4b), intent(in) :: species_abundance_index
+
+    work_item%coolant_id = coolant_id
+    work_item%species_abundance_index = species_abundance_index
+    work_item%level_count = coolant(coolant_id)%nlevels
+    work_item%temperature_count = coolant(coolant_id)%ntemperatures
+  end subroutine initialize_coolant_work
+
+  subroutine allocate_coolant_workspace(work_item)
+    type(coolant_work_item), intent(inout) :: work_item
+
+    allocate(work_item%collision_coefficients(1:work_item%level_count,1:work_item%level_count))
+    allocate(work_item%transition(1:work_item%level_count,1:work_item%level_count))
+    allocate(work_item%line(1:work_item%level_count,1:work_item%level_count))
+    allocate(work_item%optical_depth(1:work_item%level_count,1:work_item%level_count,0:nrays-1))
+    allocate(work_item%beta(1:work_item%level_count,1:work_item%level_count,0:nrays-1))
+    allocate(work_item%solution(1:work_item%level_count))
+    allocate(work_item%evalpop(0:nrays-1,0:maxpoints,1:work_item%level_count))
+
+    work_item%evalpop=0.0D0
+  end subroutine allocate_coolant_workspace
+
+  subroutine deallocate_coolant_workspace(work_item)
+    type(coolant_work_item), intent(inout) :: work_item
+
+    deallocate(work_item%collision_coefficients)
+    deallocate(work_item%transition)
+    deallocate(work_item%line)
+    deallocate(work_item%optical_depth)
+    deallocate(work_item%beta)
+    deallocate(work_item%solution)
+    deallocate(work_item%evalpop)
+  end subroutine deallocate_coolant_workspace
+
+  subroutine solve_level_populations_lvg(atomic_coolants_converged)
+    logical, intent(in) :: atomic_coolants_converged
     integer(kind=i4b) :: point_index
     integer(kind=i4b) :: point_id
 
     integer(kind=i4b) :: ray_index
     integer(kind=i4b) :: eval_index
     integer(kind=i4b) :: level_index
+    integer(kind=i4b) :: coolant_id
+    type(coolant_work_item) :: coolant_work(COOLANT_COUNT)
 
-    real(kind=dp), allocatable :: CII_C_COEFFS(:,:)
-    real(kind=dp), allocatable :: CI_C_COEFFS(:,:)
-    real(kind=dp), allocatable :: OI_C_COEFFS(:,:)
-    real(kind=dp), allocatable :: C12O_C_COEFFS(:,:)
-
-    real(kind=dp), allocatable :: transition_CII(:,:)
-    real(kind=dp), allocatable :: transition_CI(:,:)
-    real(kind=dp), allocatable :: transition_OI(:,:)
-    real(kind=dp), allocatable :: transition_C12O(:,:)
-
-    real(kind=dp), allocatable :: dummyarray_CII(:,:)
-    real(kind=dp), allocatable :: dummyarray_CI(:,:)
-    real(kind=dp), allocatable :: dummyarray_OI(:,:)
-    real(kind=dp), allocatable :: dummyarray_C12O(:,:)
-
-    real(kind=dp), allocatable :: dummyarray_CII_tau(:,:,:)
-    real(kind=dp), allocatable :: dummyarray_CI_tau(:,:,:)
-    real(kind=dp), allocatable :: dummyarray_OI_tau(:,:,:)
-    real(kind=dp), allocatable :: dummyarray_C12O_tau(:,:,:)
-
-    real(kind=dp), allocatable :: dummyarray_CII_beta(:,:,:)
-    real(kind=dp), allocatable :: dummyarray_CI_beta(:,:,:)
-    real(kind=dp), allocatable :: dummyarray_OI_beta(:,:,:)
-    real(kind=dp), allocatable :: dummyarray_C12O_beta(:,:,:)
-
-    real(kind=dp), allocatable :: CIIsolution(:)
-    real(kind=dp), allocatable :: CIsolution(:)
-    real(kind=dp), allocatable :: OIsolution(:)
-    real(kind=dp), allocatable :: C12Osolution(:)
-
-    real(kind=dp), allocatable :: CIIevalpop(:,:,:)
-    real(kind=dp), allocatable :: CIevalpop(:,:,:)
-    real(kind=dp), allocatable :: OIevalpop(:,:,:)
-    real(kind=dp), allocatable :: C12Oevalpop(:,:,:)
+    call initialize_coolant_work(coolant_work(COOLANT_CII),COOLANT_CII,species_idx%NCx)
+    call initialize_coolant_work(coolant_work(COOLANT_CI),COOLANT_CI,species_idx%NC)
+    call initialize_coolant_work(coolant_work(COOLANT_OI),COOLANT_OI,species_idx%NO)
+    call initialize_coolant_work(coolant_work(COOLANT_C12O),COOLANT_C12O,species_idx%NCO)
 
     do point_index=1,pdr_ptot
-      point_id=IDlist_pdr(point_index)
+      point_id=grid%pdr_ids(point_index)
 
 #ifdef THERMALBALANCE
-      if (level_converged(point_index).or.converged(point_index)) cycle
+      if (thermal%level_population_converged(point_index).or.thermal%thermal_converged(point_index)) cycle
 #else
-      if (level_converged(point_index)) cycle
+      if (thermal%level_population_converged(point_index)) cycle
 #endif
-      if (level_converged(point_index)) cycle
 
-      pdr(point_id)%projected(:,0) = point_id
+      call set_ray_origin_projection(grid%points(point_id), point_id)
 
       call allocate_lvg_workspace
       call populate_evaluation_populations(point_id)
 
-      call find_ccoeff(CII_NTEMP,CII_NLEV,gastemperature(point_index),CII_TEMPERATURES,&
-          & CII_H,CII_HP,CII_EL,CII_HE,CII_H2,CII_PH2,CII_OH2,&
-          & CII_C_COEFFS,pdr(point_id)%abundance(NH)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NPROTON)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NELECT)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NHE)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NH2)*pdr(point_id)%rho,1)
-      call escape_probability(transition_CII, dusttemperature(point_index), nrays, CII_nlev, &
-          &CII_A_COEFFS, CII_B_COEFFS, CII_C_COEFFS, &
-          &CII_frequencies, CIIevalpop, maxpoints, &
-          &gastemperature(point_index), v_turb, pdr(point_id)%epray, pdr(point_id)%CII_pop, &
-          &pdr(point_id)%epoint, CII_weights,CII_cool(point_index),dummyarray_CII,&
-          &dummyarray_CII_tau,1,pdr(point_id)%rho,metallicity,dummyarray_CII_beta)
-      pdr(point_id)%CII_line=dummyarray_CII
-      pdr(point_id)%CII_optdepth=dummyarray_CII_tau
-      call solvlevpop(CII_nlev,transition_CII,pdr(point_id)%abundance(NCx)*pdr(point_id)%rho,CIIsolution)
-      CII_solution(point_index,:)=CIIsolution
-#ifdef CO_FIX
-      if (levpop_iteration.ge.120) then
-        CII_solution(point_index,:)=pdr(point_id)%CII_pop
-      else if (levpop_iteration.ge.75) then
-        CII_solution(point_index,:)=0.5*(CII_solution(point_index,:) + pdr(point_id)%CII_pop)
-      endif
-#endif
-
-      call find_ccoeff(CI_NTEMP,CI_NLEV,gastemperature(point_index),CI_TEMPERATURES,&
-          & CI_H,CI_HP,CI_EL,CI_HE,CI_H2,CI_PH2,CI_OH2,&
-          & CI_C_COEFFS,pdr(point_id)%abundance(NH)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NPROTON)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NELECT)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NHE)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NH2)*pdr(point_id)%rho,2)
-      call escape_probability(transition_CI, dusttemperature(point_index), nrays, CI_nlev, &
-          &CI_A_COEFFS, CI_B_COEFFS, CI_C_COEFFS, &
-          &CI_frequencies, CIevalpop, maxpoints, &
-          &gastemperature(point_index), v_turb, pdr(point_id)%epray, pdr(point_id)%CI_pop, &
-          &pdr(point_id)%epoint,CI_weights,CI_cool(point_index),dummyarray_CI,&
-          &dummyarray_CI_tau,2,pdr(point_id)%rho,metallicity,dummyarray_CI_beta)
-      pdr(point_id)%CI_line=dummyarray_CI
-      pdr(point_id)%CI_optdepth=dummyarray_CI_tau
-      call solvlevpop(CI_nlev,transition_CI,pdr(point_id)%abundance(NC)*pdr(point_id)%rho,CIsolution)
-      CI_solution(point_index,:)=CIsolution
-#ifdef CO_FIX
-      if (levpop_iteration.ge.120) then
-        CI_solution(point_index,:)=pdr(point_id)%CI_pop
-      else if (levpop_iteration.ge.75) then
-        CI_solution(point_index,:)=0.5*(CI_solution(point_index,:) + pdr(point_id)%CI_pop)
-      endif
-#endif
-
-      call find_ccoeff(OI_NTEMP,OI_NLEV,gastemperature(point_index),OI_TEMPERATURES,&
-          & OI_H,OI_HP,OI_EL,OI_HE,OI_H2,OI_PH2,OI_OH2,&
-          & OI_C_COEFFS,pdr(point_id)%abundance(NH)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NPROTON)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NELECT)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NHE)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NH2)*pdr(point_id)%rho,3)
-      call escape_probability(transition_OI, dusttemperature(point_index), nrays, OI_nlev, &
-          &OI_A_COEFFS, OI_B_COEFFS, OI_C_COEFFS, &
-          &OI_frequencies, OIevalpop, maxpoints, &
-          &gastemperature(point_index), v_turb, pdr(point_id)%epray, pdr(point_id)%OI_pop, &
-          &pdr(point_id)%epoint,OI_weights,OI_cool(point_index),dummyarray_OI,&
-          &dummyarray_OI_tau,3,pdr(point_id)%rho,metallicity,dummyarray_OI_beta)
-      pdr(point_id)%OI_line=dummyarray_OI
-      pdr(point_id)%OI_optdepth=dummyarray_OI_tau
-      call solvlevpop(OI_nlev,transition_OI,pdr(point_id)%abundance(NO)*pdr(point_id)%rho,OIsolution)
-      OI_solution(point_index,:)=OIsolution
-#ifdef CO_FIX
-      if (levpop_iteration.ge.120) then
-        OI_solution(point_index,:)=pdr(point_id)%OI_pop
-      else if (levpop_iteration.ge.75) then
-        OI_solution(point_index,:)=0.5*(OI_solution(point_index,:) + pdr(point_id)%OI_pop)
-      endif
-#endif
-
-      call find_ccoeff(C12O_NTEMP,C12O_NLEV,gastemperature(point_index),C12O_TEMPERATURES,&
-          & C12O_H,C12O_HP,C12O_EL,C12O_HE,C12O_H2,C12O_PH2,C12O_OH2,&
-          & C12O_C_COEFFS,pdr(point_id)%abundance(NH)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NPROTON)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NELECT)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NHE)*pdr(point_id)%rho,&
-          & pdr(point_id)%abundance(NH2)*pdr(point_id)%rho,4)
-      call escape_probability(transition_C12O, dusttemperature(point_index), nrays, C12O_nlev, &
-          &C12O_A_COEFFS, C12O_B_COEFFS, C12O_C_COEFFS, &
-          &C12O_frequencies, C12Oevalpop, maxpoints, &
-          &gastemperature(point_index), v_turb, pdr(point_id)%epray, pdr(point_id)%C12O_pop, &
-          &pdr(point_id)%epoint,C12O_weights,C12O_cool(point_index),dummyarray_C12O,&
-          &dummyarray_C12O_tau,4,pdr(point_id)%rho,metallicity,dummyarray_C12O_beta)
-      pdr(point_id)%C12O_line=dummyarray_C12O
-      pdr(point_id)%C12O_optdepth=dummyarray_C12O_tau
-      call solvlevpop(C12O_nlev,transition_C12O,pdr(point_id)%abundance(NCO)*pdr(point_id)%rho,C12Osolution)
-      C12O_solution(point_index,:)=C12Osolution
-
-#ifdef CO_FIX
-      if (CII_percentage.eq.100.and.CI_percentage.eq.100.and.OI_percentage.eq.100) then
-        if (levpop_iteration.ge.120) then
-          C12O_solution(point_index,:)=pdr(point_id)%C12O_pop
-        else if (levpop_iteration.ge.75) then
-          C12O_solution(point_index,:)=0.5*(C12O_solution(point_index,:) + pdr(point_id)%C12O_pop)
-        endif
-      endif
-#endif
+      call solve_coolant_population(coolant_work(COOLANT_CII), point_index, point_id, .true.)
+      call solve_coolant_population(coolant_work(COOLANT_CI), point_index, point_id, .true.)
+      call solve_coolant_population(coolant_work(COOLANT_OI), point_index, point_id, .true.)
+      call solve_coolant_population(coolant_work(COOLANT_C12O), point_index, point_id, atomic_coolants_converged)
 
       call deallocate_lvg_workspace
     enddo
 
-    total_cooling_rate=CII_cool+CI_cool+OI_cool+C12O_cool
+    thermal%total_cooling_rate=0.0D0
+    do coolant_id = 1, COOLANT_COUNT
+      thermal%total_cooling_rate = thermal%total_cooling_rate + coolant_iteration(coolant_id)%cooling_rate
+    enddo
 
   contains
 
     subroutine allocate_lvg_workspace
-      allocate(CII_C_COEFFS(1:CII_NLEV,1:CII_NLEV))
-      allocate(CI_C_COEFFS(1:CI_NLEV,1:CI_NLEV))
-      allocate(OI_C_COEFFS(1:OI_NLEV,1:OI_NLEV))
-      allocate(C12O_C_COEFFS(1:C12O_NLEV,1:C12O_NLEV))
-
-      allocate(transition_CII(1:CII_nlev,1:CII_nlev))
-      allocate(transition_CI(1:CI_nlev,1:CI_nlev))
-      allocate(transition_OI(1:OI_nlev,1:OI_nlev))
-      allocate(transition_C12O(1:C12O_nlev,1:C12O_nlev))
-
-      allocate(dummyarray_CII(1:CII_nlev,1:CII_nlev))
-      allocate(dummyarray_CI(1:CI_nlev,1:CI_nlev))
-      allocate(dummyarray_OI(1:OI_nlev,1:OI_nlev))
-      allocate(dummyarray_C12O(1:C12O_nlev,1:C12O_nlev))
-
-      allocate(dummyarray_CII_tau(1:CII_nlev,1:CII_nlev,0:nrays-1))
-      allocate(dummyarray_CI_tau(1:CI_nlev,1:CI_nlev,0:nrays-1))
-      allocate(dummyarray_OI_tau(1:OI_nlev,1:OI_nlev,0:nrays-1))
-      allocate(dummyarray_C12O_tau(1:C12O_nlev,1:C12O_nlev,0:nrays-1))
-
-      allocate(dummyarray_CII_beta(1:CII_nlev,1:CII_nlev,0:nrays-1))
-      allocate(dummyarray_CI_beta(1:CI_nlev,1:CI_nlev,0:nrays-1))
-      allocate(dummyarray_OI_beta(1:OI_nlev,1:OI_nlev,0:nrays-1))
-      allocate(dummyarray_C12O_beta(1:C12O_nlev,1:C12O_nlev,0:nrays-1))
-
-      allocate(CIIsolution(1:CII_nlev))
-      allocate(CIsolution(1:CI_nlev))
-      allocate(OIsolution(1:OI_nlev))
-      allocate(C12Osolution(1:C12O_nlev))
-
-      allocate(CIIevalpop(0:nrays-1,0:maxpoints,1:CII_nlev))
-      allocate(CIevalpop(0:nrays-1,0:maxpoints,1:CI_nlev))
-      allocate(OIevalpop(0:nrays-1,0:maxpoints,1:OI_nlev))
-      allocate(C12Oevalpop(0:nrays-1,0:maxpoints,1:C12O_nlev))
-
-      CIIevalpop=0.0D0
-      CIevalpop=0.0D0
-      OIevalpop=0.0D0
-      C12Oevalpop=0.0D0
+      do coolant_id=1,COOLANT_COUNT
+        call allocate_coolant_workspace(coolant_work(coolant_id))
+      enddo
     end subroutine allocate_lvg_workspace
 
     subroutine populate_evaluation_populations(source_point_id)
       integer(kind=i4b), intent(in) :: source_point_id
-      integer(kind=i4b) :: projected_point_id
+      integer(kind=i4b) :: eval_point_id
 
       do ray_index=0,nrays-1
-        do eval_index=0,pdr(source_point_id)%epray(ray_index)
-          projected_point_id=int(pdr(source_point_id)%projected(ray_index,eval_index))
+        do eval_index=0,grid%points(source_point_id)%epray(ray_index)
+          eval_point_id=projected_point_id(grid%points(source_point_id), ray_index, eval_index)
 
-          do level_index=1,CII_nlev
-            CIIevalpop(ray_index,eval_index,level_index)=pdr(projected_point_id)%CII_pop(level_index)
-          enddo
-          do level_index=1,CI_nlev
-            CIevalpop(ray_index,eval_index,level_index)=pdr(projected_point_id)%CI_pop(level_index)
-          enddo
-          do level_index=1,OI_nlev
-            OIevalpop(ray_index,eval_index,level_index)=pdr(projected_point_id)%OI_pop(level_index)
-          enddo
-          do level_index=1,C12O_nlev
-            C12Oevalpop(ray_index,eval_index,level_index)=pdr(projected_point_id)%C12O_pop(level_index)
+          do coolant_id=1,COOLANT_COUNT
+            do level_index=1,coolant_work(coolant_id)%level_count
+              coolant_work(coolant_id)%evalpop(ray_index,eval_index,level_index)=&
+                  &grid%points(eval_point_id)%coolant_state(coolant_id)%population(level_index)
+            enddo
           enddo
         enddo
       enddo
     end subroutine populate_evaluation_populations
 
+    subroutine solve_coolant_population(work_item, target_point_index, target_point_id, relaxation_enabled)
+      type(coolant_work_item), intent(inout) :: work_item
+      integer(kind=i4b), intent(in) :: target_point_index
+      integer(kind=i4b), intent(in) :: target_point_id
+      logical, intent(in) :: relaxation_enabled
+      real(kind=dp) :: species_density
+
+      species_density = abundance_density(target_point_id, work_item%species_abundance_index)
+
+      call update_collision_rates(work_item, target_point_index, target_point_id)
+      call update_lvg_transition_rates(work_item, target_point_index, target_point_id)
+      call solve_statistical_equilibrium(work_item%transition, species_density, work_item%solution)
+
+      coolant_iteration(work_item%coolant_id)%solution(target_point_index,:)=work_item%solution
+      call apply_population_relaxation(work_item%coolant_id, target_point_index, target_point_id, relaxation_enabled)
+    end subroutine solve_coolant_population
+
+    real(kind=dp) function abundance_density(point_id, abundance_index)
+      integer(kind=i4b), intent(in) :: point_id
+      integer(kind=i4b), intent(in) :: abundance_index
+
+      abundance_density = grid%points(point_id)%abundance(abundance_index)*grid%points(point_id)%rho
+    end function abundance_density
+
+    subroutine update_collision_rates(work_item, target_point_index, target_point_id)
+      type(coolant_work_item), intent(inout) :: work_item
+      integer(kind=i4b), intent(in) :: target_point_index
+      integer(kind=i4b), intent(in) :: target_point_id
+
+      call find_collision_coefficients(work_item%temperature_count,work_item%level_count, &
+          & thermal%gas_temperature(target_point_index),coolant(work_item%coolant_id)%temperatures, &
+          & coolant(work_item%coolant_id)%h,coolant(work_item%coolant_id)%hp, &
+          & coolant(work_item%coolant_id)%el,coolant(work_item%coolant_id)%he, &
+          & coolant(work_item%coolant_id)%h2,coolant(work_item%coolant_id)%ph2, &
+          & coolant(work_item%coolant_id)%oh2,work_item%collision_coefficients, &
+          & abundance_density(target_point_id, species_idx%NH), &
+          & abundance_density(target_point_id, species_idx%NPROTON), &
+          & abundance_density(target_point_id, NELECT), &
+          & abundance_density(target_point_id, species_idx%NHe), &
+          & abundance_density(target_point_id, species_idx%NH2), &
+          & work_item%coolant_id)
+    end subroutine update_collision_rates
+
+    subroutine update_lvg_transition_rates(work_item, target_point_index, target_point_id)
+      type(coolant_work_item), intent(inout) :: work_item
+      integer(kind=i4b), intent(in) :: target_point_index
+      integer(kind=i4b), intent(in) :: target_point_id
+
+      call escape_probability(work_item%transition, thermal%dust_temperature(target_point_index), &
+          & nrays, work_item%level_count, coolant(work_item%coolant_id)%a_coeffs, &
+          & coolant(work_item%coolant_id)%b_coeffs, work_item%collision_coefficients, &
+          & coolant(work_item%coolant_id)%frequencies, work_item%evalpop, maxpoints, &
+          & thermal%gas_temperature(target_point_index), runtime%turbulent_velocity, &
+          & grid%points(target_point_id)%epray, &
+          & grid%points(target_point_id)%coolant_state(work_item%coolant_id)%population, &
+          & grid%points(target_point_id)%epoint, coolant(work_item%coolant_id)%weights, &
+          & coolant_iteration(work_item%coolant_id)%cooling_rate(target_point_index), &
+          & work_item%line, work_item%optical_depth, work_item%coolant_id, &
+          & grid%points(target_point_id)%rho, metallicity, work_item%beta)
+
+      grid%points(target_point_id)%coolant_state(work_item%coolant_id)%line = work_item%line
+      grid%points(target_point_id)%coolant_state(work_item%coolant_id)%optical_depth = work_item%optical_depth
+    end subroutine update_lvg_transition_rates
+
+    subroutine apply_population_relaxation(coolant_id, target_point_index, target_point_id, relaxation_enabled)
+      integer(kind=i4b), intent(in) :: coolant_id
+      integer(kind=i4b), intent(in) :: target_point_index
+      integer(kind=i4b), intent(in) :: target_point_id
+      logical, intent(in) :: relaxation_enabled
+
+#ifdef CO_FIX
+      if (.not.relaxation_enabled) return
+
+      if (levpop_iteration.ge.120) then
+        coolant_iteration(coolant_id)%solution(target_point_index,:) = &
+            &grid%points(target_point_id)%coolant_state(coolant_id)%population
+      else if (levpop_iteration.ge.75) then
+        coolant_iteration(coolant_id)%solution(target_point_index,:) = &
+            &0.5D0*(coolant_iteration(coolant_id)%solution(target_point_index,:) + &
+            &grid%points(target_point_id)%coolant_state(coolant_id)%population)
+      endif
+#endif
+    end subroutine apply_population_relaxation
+
     subroutine deallocate_lvg_workspace
-      deallocate(CII_C_COEFFS)
-      deallocate(CI_C_COEFFS)
-      deallocate(OI_C_COEFFS)
-      deallocate(C12O_C_COEFFS)
-
-      deallocate(transition_CII)
-      deallocate(transition_CI)
-      deallocate(transition_OI)
-      deallocate(transition_C12O)
-
-      deallocate(dummyarray_CII)
-      deallocate(dummyarray_CI)
-      deallocate(dummyarray_OI)
-      deallocate(dummyarray_C12O)
-
-      deallocate(dummyarray_CII_tau)
-      deallocate(dummyarray_CI_tau)
-      deallocate(dummyarray_OI_tau)
-      deallocate(dummyarray_C12O_tau)
-
-      deallocate(dummyarray_CII_beta)
-      deallocate(dummyarray_CI_beta)
-      deallocate(dummyarray_OI_beta)
-      deallocate(dummyarray_C12O_beta)
-
-      deallocate(CIIsolution)
-      deallocate(CIsolution)
-      deallocate(OIsolution)
-      deallocate(C12Osolution)
-
-      deallocate(CIIevalpop)
-      deallocate(CIevalpop)
-      deallocate(OIevalpop)
-      deallocate(C12Oevalpop)
+      do coolant_id=1,COOLANT_COUNT
+        call deallocate_coolant_workspace(coolant_work(coolant_id))
+      enddo
     end subroutine deallocate_lvg_workspace
 
   end subroutine solve_level_populations_lvg

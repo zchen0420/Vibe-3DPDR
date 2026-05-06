@@ -119,42 +119,43 @@ SUBROUTINE readparams(config_file)
   use definitions
   use healpix_types
   use run_config_module
-  use maincode_module, only : input, level, Tguess, v_turb_inp, iterstep,&
-      & theta_crit, ITERTOT, output, rho_min, rho_max,&
-      & fieldchoice, Gext, AV_fac, UV_fac, nspec, nreac, &
-      & CII_NLEV, CII_NTEMP, CI_NLEV, CI_NTEMP, &
-      & OI_NLEV, OI_NTEMP, C12O_NLEV, C12O_NTEMP, maxpoints, &
-      & Tlow0, Thigh0, Tmin, Tmax, Fcrit, Tdiff, dust_temperature,writeiterations,&
-      & chemiterations, zeta, end_time, C12Oinput, CIIinput, CIinput, OIinput
+  use coolants_module, only : COOLANT_COUNT, COOLANT_C12O, COOLANT_CII, COOLANT_CI, COOLANT_OI, &
+      &coolant_default_nlevels, coolant_default_ntemps
+  use maincode_module, only : runtime, level, theta_crit, rho_min, rho_max,&
+      & fieldchoice, Gext, nspec, nreac, maxpoints, &
+      & Tlow0, Thigh0, Tmin, Tmax, Fcrit, Tdiff, dust_temperature,&
+      & end_time, coolant
   use global_module, only : g2d, metallicity, omega, grain_radius
   implicit none
 
   character(len=*), intent(in) :: config_file
+  integer(kind=i4b) :: coolant_id
   type(run_config) :: config
 
   call read_run_config(config_file, config)
 
-  input = config%input
-  output = config%output
+  runtime%input_file = config%input
+  runtime%output_prefix = config%output
   level = config%level
   theta_crit = config%theta_crit
-  chemiterations = config%chemiterations
-  ITERTOT = config%itertot
+  runtime%chemistry_iterations = config%chemiterations
+  runtime%total_iterations = config%itertot
   rho_min = config%rho_min
   rho_max = config%rho_max
-  zeta = config%zeta/1.3d-17
-  v_turb_inp = config%v_turb_inp
+  runtime%cosmic_ray_ionization_rate = config%zeta/1.3d-17
+  runtime%input_turbulent_velocity = config%v_turb_inp
   dust_temperature = config%dust_temperature
   end_time = config%end_time
   g2d = config%g2d
   metallicity = config%metallicity
   omega = config%omega
   grain_radius = config%grain_radius
-  C12Oinput = config%C12Oinput
-  CIIinput = config%CIIinput
-  CIinput = config%CIinput
-  OIinput = config%OIinput
-  Tguess = config%Tguess
+  if (.not.allocated(coolant)) allocate(coolant(1:COOLANT_COUNT))
+  coolant(COOLANT_C12O)%input_file = config%C12Oinput
+  coolant(COOLANT_CII)%input_file = config%CIIinput
+  coolant(COOLANT_CI)%input_file = config%CIinput
+  coolant(COOLANT_OI)%input_file = config%OIinput
+  runtime%temperature_guess = config%Tguess
   Tlow0 = config%Tlow0
   Thigh0 = config%Thigh0
   Tmin = config%Tmin
@@ -165,8 +166,8 @@ SUBROUTINE readparams(config_file)
   Gext = config%Gext
 
   maxpoints = 600
-  AV_fac = 6.289E-22*metallicity
-  UV_fac = 3.02
+  runtime%av_scale = 6.289E-22*metallicity
+  runtime%uv_scale = 3.02
 
 #ifdef REDUCED
   nspec = count_data_records('data/species_reduced.d')
@@ -183,14 +184,10 @@ SUBROUTINE readparams(config_file)
   nreac = count_data_records('data/rates_mynetwork.d')
 #endif
 
-  CII_NLEV = 5
-  CII_NTEMP = 18
-  CI_NLEV = 5
-  CI_NTEMP = 29
-  OI_NLEV = 5
-  OI_NTEMP = 27
-  C12O_NLEV = 41
-  C12O_NTEMP = 25
+  do coolant_id = 1, COOLANT_COUNT
+    coolant(coolant_id)%nlevels = coolant_default_nlevels(coolant_id)
+    coolant(coolant_id)%ntemperatures = coolant_default_ntemps(coolant_id)
+  enddo
 
   return
 END SUBROUTINE readparams

@@ -1,11 +1,13 @@
 module chemistry_io_module
   use maincode_module
+  use global_module, only : initialize_species_indices
 
 contains
 
   subroutine load_chemistry_network
-    call read_species(nspec, species, dummyabundance, mass)
-    call READ_RATES(NREAC,REACTANT,PRODUCT,ALPHA,BETA,GAMMA,rate,DUPLICATE,RTMIN,RTMAX)
+    call initialize_species_indices
+    call read_species(nspec, chemistry%network%species, chemistry%network%initial_abundance, chemistry%network%mass)
+    call READ_RATES(NREAC,chemistry%network%reactant,chemistry%network%product,chemistry%network%alpha,chemistry%network%beta,chemistry%network%gamma,chemistry%rate,chemistry%network%duplicate,chemistry%network%rtmin,chemistry%network%rtmax)
   end subroutine load_chemistry_network
 
 end module chemistry_io_module

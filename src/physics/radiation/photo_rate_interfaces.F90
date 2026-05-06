@@ -1,4 +1,4 @@
-module functions_module
+module photo_rate_interfaces_module
 
   use definitions
   use healpix_types
@@ -94,15 +94,16 @@ module functions_module
       real(kind=dp) :: NCO, NH2
     end function LBAR
 
-    function calculate_heating(density, gas_temperature, dust_temperature, UV_field, &
-          & v_turb, nspec, dummyabundance, nreac, rate)
+    subroutine calculate_heating_rates(density, gas_temperature, dust_temperature, UV_field, &
+          & v_turb, nspec, abundance, nreac, rate, heating_rate, &
+          & NRGR, NRH2, NRHD, NRCO, NRCI, NRSI)
       use definitions
       use healpix_types
-      real(kind=dp) :: calculate_heating
       integer(kind=i4b) :: nspec, nreac
+      integer(kind=i4b) :: NRGR, NRH2, NRHD, NRCO, NRCI, NRSI
       real(kind=dp) :: density, gas_temperature, dust_temperature, UV_field, v_turb
-      real(kind=dp) :: dummyabundance(1:nspec), rate(1:nreac)
-    end function calculate_heating
+      real(kind=dp) :: abundance(1:nspec), rate(1:nreac), heating_rate(1:12)
+    end subroutine calculate_heating_rates
 
 #ifdef H2FORM
 
@@ -118,4 +119,4 @@ module functions_module
 
   end interface
 
-end module functions_module
+end module photo_rate_interfaces_module

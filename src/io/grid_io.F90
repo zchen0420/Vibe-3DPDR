@@ -1,6 +1,7 @@
 module grid_io_module
   use definitions
   use healpix_types
+  use simulation_grid_module, only : allocate_simulation_grid
   use maincode_module
 
 contains
@@ -17,18 +18,20 @@ contains
   end subroutine read_initial_grid
 
   subroutine count_grid_points
+    integer(kind=i4b) :: record_count
     integer :: read_status
+    real(kind=dp) :: dummy_value
 
-    open(unit=2,file=input,status='old')
+    open(unit=2,file=runtime%input_file,status='old')
 
-    i=0
+    record_count=0
     do
-      read(2,*,iostat=read_status) points
+      read(2,*,iostat=read_status) dummy_value
       if (read_status.ne.0) exit
-      i=i+1
+      record_count=record_count+1
     enddo
 
-    grand_ptot=i
+    grand_ptot=record_count
     write(6,*) 'Total elements: ',grand_ptot
 
     close(2)
@@ -36,14 +39,13 @@ contains
   end subroutine count_grid_points
 
   subroutine allocate_grid_storage
-    allocate(pdr(1:grand_ptot))
-    allocate(IDlist_pdr(1:grand_ptot))
-    allocate(IDlist_ion(1:grand_ptot))
-    allocate(IDlist_dark(1:grand_ptot))
+    call allocate_simulation_grid(grid, grand_ptot)
   end subroutine allocate_grid_storage
 
   subroutine classify_grid_points(maximum_density, minimum_density)
     real(kind=dp), intent(out) :: maximum_density, minimum_density
+    integer(kind=i4b) :: point_id
+    real(kind=dp) :: x_position, y_position, z_position, density_value
 
     pdr_ptot=0
     ion_ptot=0
@@ -51,38 +53,32 @@ contains
     maximum_density=0.0D0
     minimum_density=1.0D10
 
-    open(unit=2,file=input,status='old')
+    open(unit=2,file=runtime%input_file,status='old')
 
-    do p=1,grand_ptot
-      read(2,*) xpos,ypos,zpos,denst
-      if (denst.le.rho_min) then
+    do point_id=1,grand_ptot
+      read(2,*) x_position,y_position,z_position,density_value
+      if (density_value.le.rho_min) then
         ion_ptot = ion_ptot + 1
-        pdr(p)%etype = 2 !IONIZED
-        pdr(p)%x=xpos
-        pdr(p)%y=ypos
-        pdr(p)%z=zpos
-        pdr(p)%rho=denst
-        IDlist_ion(ion_ptot)=p
+        grid%points(point_id)%etype = 2 !IONIZED
+        grid%points(point_id)%position = (/x_position, y_position, z_position/)
+        grid%points(point_id)%rho=density_value
+        grid%ion_ids(ion_ptot)=point_id
       endif
-      if ((denst.gt.rho_min).AND.(denst.le.rho_max)) then
+      if ((density_value.gt.rho_min).AND.(density_value.le.rho_max)) then
         pdr_ptot = pdr_ptot + 1
-        pdr(p)%etype = 1 !PDR
-        pdr(p)%x=xpos
-        pdr(p)%y=ypos
-        pdr(p)%z=zpos
-        pdr(p)%rho=denst
-        if (denst.gt.maximum_density) maximum_density=denst
-        if (denst.lt.minimum_density) minimum_density=denst
-        IDlist_pdr(pdr_ptot)=p
+        grid%points(point_id)%etype = 1 !grid%points
+        grid%points(point_id)%position = (/x_position, y_position, z_position/)
+        grid%points(point_id)%rho=density_value
+        if (density_value.gt.maximum_density) maximum_density=density_value
+        if (density_value.lt.minimum_density) minimum_density=density_value
+        grid%pdr_ids(pdr_ptot)=point_id
       endif
-      if (denst.gt.rho_max) then
+      if (density_value.gt.rho_max) then
         dark_ptot = dark_ptot + 1
-        pdr(p)%etype = 3 !DARK MOLECULAR
-        pdr(p)%x=xpos
-        pdr(p)%y=ypos
-        pdr(p)%z=zpos
-        pdr(p)%rho=denst
-        IDlist_dark(dark_ptot)=p
+        grid%points(point_id)%etype = 3 !DARK MOLECULAR
+        grid%points(point_id)%position = (/x_position, y_position, z_position/)
+        grid%points(point_id)%rho=density_value
+        grid%dark_ids(dark_ptot)=point_id
       endif
     enddo
 

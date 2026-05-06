@@ -1,8 +1,10 @@
 module evolution_setup_module
-  use definitions
-  use chemistry_module
-  use maincode_module
-  use global_module
+  use definitions, only : dp
+  use healpix_types, only : i4b
+  use chemistry_module, only : absolute_abundance_tolerance, relative_abundance_tolerance
+  use geometry_state_module, only : allocate_column_density_storage
+  use thermal_state_module, only : allocate_thermal_convergence_state
+  use maincode_module, only : dark_ptot, first_time, geometry, grid, iteration, level_conv, pdr_ptot, start_time, thermal
   use columns_module, only : calc_columndens
   use dark_region_module, only : dark_molecular_region
   use iteration_chemistry_module, only : run_initial_chemistry_iterations
@@ -16,6 +18,7 @@ contains
   subroutine initialise_evolution_state(dobinarychop, previouschange)
     logical, allocatable, intent(inout) :: dobinarychop(:)
     character(len=1), allocatable, intent(inout) :: previouschange(:)
+    integer(kind=i4b) :: point_id, point_index
 
     write(6,*) 'Calculating UV field ...'
 
@@ -23,17 +26,14 @@ contains
 
 #ifdef DUST2
     call calculate_dust_temperatures
-    do pp=1,pdr_ptot
-      p=IDlist_pdr(pp)
-      dusttemperature(pp)=pdr(p)%dust_t
+    do point_index=1,pdr_ptot
+      point_id=grid%pdr_ids(point_index)
+      thermal%dust_temperature(point_index)=grid%points(point_id)%dust_temperature
     enddo
 #endif
 
 #ifdef THERMALBALANCE
-    allocate(converged(0:pdr_ptot))
-    allocate(doleveltmin(0:pdr_ptot))
-    doleveltmin=.false.
-    converged=.false.
+    call allocate_thermal_convergence_state(thermal, pdr_ptot)
     level_conv=.false.
     first_time=.true.
 
@@ -44,11 +44,9 @@ contains
     allocate(previouschange(0:pdr_ptot))
 #endif
 
-    allocate(column(0:pdr_ptot))
-    write(6,*) 'Calculating column densities...'
-    referee=0
-    call calc_columndens
-    referee=1
+    call allocate_column_density_storage(geometry, pdr_ptot)
+    write(6,*) 'Calculating geometry%column_density densities...'
+    call calc_columndens(.true.)
 
     start_time = 0.0D0
 
@@ -60,10 +58,10 @@ contains
   subroutine prepare_initial_lte_populations
     real(kind=dp) :: start_time_lte
     real(kind=dp) :: end_time_lte
+    real :: total_time
 
     write(6,*) ''
     write(6,*) 'Calculating LTE level populations...'
-    call cpu_time(t3b)
 
     relative_abundance_tolerance = 1.0D-8
     absolute_abundance_tolerance = 1.0D-30
@@ -76,8 +74,8 @@ contains
     write(6,*) 'Time for LTE level populations (SERIAL)= ', &
         &(end_time_lte-start_time_lte),' seconds'
 
-    call cpu_time(t3)
-    write(6,*) 'Total time = ',t3,' seconds'
+    call cpu_time(total_time)
+    write(6,*) 'Total time = ',total_time,' seconds'
     write(6,*) ''
   end subroutine prepare_initial_lte_populations
 

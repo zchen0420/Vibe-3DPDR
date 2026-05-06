@@ -1,15 +1,16 @@
 module iteration_chemistry_module
-  use definitions
-  use maincode_module
-  use global_module
+  use definitions, only : dp
+  use healpix_types, only : i4b
+  use maincode_module, only : chemistry, grid, nreac, nspec, pdr_ptot, runtime, thermal
   use columns_module, only : calc_columndens
+  use point_reaction_rates_module, only : calculate_point_reaction_rates
 
   implicit none
 
 contains
 
   subroutine run_initial_chemistry_iterations
-    integer(kind=i4b) :: NRGR,NRH2,NRHD,NRCO,NRCI,NRSI
+    integer(kind=i4b) :: chemistry_iteration, point_id, point_index
     real(kind=dp), allocatable :: dummy_abundance(:,:)
     real(kind=dp), allocatable :: dummy_density(:)
     real(kind=dp), allocatable :: dummy_rate(:,:)
@@ -20,29 +21,26 @@ contains
     allocate(dummy_density(1:pdr_ptot))
     allocate(dummy_temperature(1:pdr_ptot))
 
-    do ii=1,CHEMITERATIONS
-      write(6,*) 'Chemical iteration ',ii
+    do chemistry_iteration=1,runtime%chemistry_iterations
+      write(6,*) 'Chemical iteration ',chemistry_iteration
 
-      do pp=1,pdr_ptot
-        p=IDlist_pdr(pp)
-        call calculate_reaction_rates(gastemperature(pp),dusttemperature(pp),nrays,pdr(p)%rad_surface(0:nrays-1),&
-            &pdr(p)%AV(0:nrays-1),column(pp)%columndens_point(0:nrays-1,1:nspec),&
-            &nreac, reactant, product, alpha, beta, gamma, rate, rtmin, rtmax, duplicate, nspec,&
-            &NRGR,NRH2,NRHD,NRCO,NRCI,NRSI)
-        dummy_rate(:,pp) = rate
-        dummy_abundance(:,pp) = pdr(p)%abundance
-        dummy_density(pp) = pdr(p)%rho
-        dummy_temperature(pp) = gastemperature(pp)
+      do point_index=1,pdr_ptot
+        point_id=grid%pdr_ids(point_index)
+        call calculate_point_reaction_rates(point_index, point_id)
+        dummy_rate(:,point_index) = chemistry%rate
+        dummy_abundance(:,point_index) = grid%points(point_id)%abundance
+        dummy_density(point_index) = grid%points(point_id)%rho
+        dummy_temperature(point_index) = thermal%gas_temperature(point_index)
       enddo
 
       call calculate_abundances(dummy_abundance,dummy_rate,dummy_density,dummy_temperature,pdr_ptot,nspec,nreac)
 
-      do pp=1,pdr_ptot
-        p=IDlist_pdr(pp)
-        pdr(p)%abundance = dummy_abundance(:,pp)
+      do point_index=1,pdr_ptot
+        point_id=grid%pdr_ids(point_index)
+        grid%points(point_id)%abundance = dummy_abundance(:,point_index)
       enddo
 
-      call calc_columndens
+      call calc_columndens(.false.)
     enddo
 
     deallocate(dummy_rate)
@@ -52,7 +50,7 @@ contains
   end subroutine run_initial_chemistry_iterations
 
   subroutine refresh_chemistry_after_temperature_change
-    integer(kind=i4b) :: NRGR,NRH2,NRHD,NRCO,NRCI,NRSI
+    integer(kind=i4b) :: chemistry_iteration, point_id, point_index
     real(kind=dp), allocatable :: dummy_abundance(:,:)
     real(kind=dp), allocatable :: dummy_density(:)
     real(kind=dp), allocatable :: dummy_rate(:,:)
@@ -63,32 +61,29 @@ contains
     allocate(dummy_density(1:pdr_ptot))
     allocate(dummy_temperature(1:pdr_ptot))
 
-    do ii=1,3
-      write(6,*) 'Chemical iteration ',ii
+    do chemistry_iteration=1,3
+      write(6,*) 'Chemical iteration ',chemistry_iteration
 
-      do pp=1,pdr_ptot
-        p=IDlist_pdr(pp)
-        call calculate_reaction_rates(gastemperature(pp),dusttemperature(pp),nrays,pdr(p)%rad_surface(0:nrays-1),&
-            &pdr(p)%AV(0:nrays-1),column(pp)%columndens_point(0:nrays-1,1:nspec),&
-            &nreac, reactant, product, alpha, beta, gamma, rate, rtmin, rtmax, duplicate, nspec,&
-            &NRGR,NRH2,NRHD,NRCO,NRCI,NRSI)
-        dummy_rate(:,pp) = rate
-        dummy_abundance(:,pp) = pdr(p)%abundance
-        dummy_density(pp) = pdr(p)%rho
-        dummy_temperature(pp) = gastemperature(pp)
+      do point_index=1,pdr_ptot
+        point_id=grid%pdr_ids(point_index)
+        call calculate_point_reaction_rates(point_index, point_id)
+        dummy_rate(:,point_index) = chemistry%rate
+        dummy_abundance(:,point_index) = grid%points(point_id)%abundance
+        dummy_density(point_index) = grid%points(point_id)%rho
+        dummy_temperature(point_index) = thermal%gas_temperature(point_index)
       enddo
 
       call calculate_abundances(dummy_abundance,dummy_rate,dummy_density,dummy_temperature,pdr_ptot,nspec,nreac)
 
-      do pp=1,pdr_ptot
+      do point_index=1,pdr_ptot
 #ifdef THERMALBALANCE
-        if (converged(pp)) cycle
+        if (thermal%thermal_converged(point_index)) cycle
 #endif
-        p=IDlist_pdr(pp)
-        pdr(p)%abundance = dummy_abundance(:,pp)
+        point_id=grid%pdr_ids(point_index)
+        grid%points(point_id)%abundance = dummy_abundance(:,point_index)
       enddo
 
-      call calc_columndens
+      call calc_columndens(.false.)
     enddo
 
     deallocate(dummy_rate)

@@ -1,4 +1,4 @@
-SUBROUTINE find_Ccoeff(NTEMP,NLEV,TEMPERATURE,TEMPERATURES,H_COL,HP_COL,EL_COL,HE_COL, &
+SUBROUTINE find_collision_coefficients(NTEMP,NLEV,TEMPERATURE,TEMPERATURES,H_COL,HP_COL,EL_COL,HE_COL, &
       & H2_COL,PH2_COL,OH2_COL,C_COEFFS,H_abd,Hp_abd,elec_abd,He_abd,H2_abd,&
       & coolant)!, step_check, coef)
   !T.Bell

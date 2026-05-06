@@ -1,18 +1,18 @@
 !C=======================================================================
 !C
-!C     H2 photodissociation rate taking into account
+!C     H2 photodissociation chemistry%rate taking into account
 !C     self-shielding and grain extinction
 !C
 !C-----------------------------------------------------------------------
 !C
 !C     Input parameters:
-!C     K0  = Unattenuated photodissociation rate (in cm^3/s)
+!C     K0  = Unattenuated photodissociation chemistry%rate (in cm^3/s)
 !C     G0  = Incident FUV field (in Draine units)
 !C     AV  = visual extinction (in magnitudes)
-!C     NH2 = H2 column density (in cm^-2)
+!C     NH2 = H2 geometry%column_density density (in cm^-2)
 !C
 !C     Program variables:
-!C     H2PDRATE = H2 photodissociation rate taking into
+!C     H2PDRATE = H2 photodissociation chemistry%rate taking into
 !C                account self-shielding and grain extinction
 !C     DOPW     = Doppler linewidth (in Hz) of a typical transition
 !C                (assuming turbulent broadening with b=3 km/s)
@@ -33,7 +33,7 @@ FUNCTION H2PDRATE(K0,G0,AV,NH2)
   !      real(kind=dp) :: H2SHIELD2
   use definitions
   use healpix_types
-  use maincode_module, only : v_turb
+  use maincode_module, only : runtime
   !     use global_module, only : nh2
   implicit none
   real(kind=dp) :: H2PDRATE
@@ -44,162 +44,15 @@ FUNCTION H2PDRATE(K0,G0,AV,NH2)
   real(kind=dp) :: dopw, radw, h2shield1
 
   LAMBDA=1000.0D0
-  DOPW=V_TURB/(LAMBDA*1.0D-8)
+  DOPW=runtime%turbulent_velocity/(LAMBDA*1.0D-8)
   RADW=8.0D7
 
-  !     Calculate the H2 photodissociation rate (H2PDRATE)
+  !     Calculate the H2 photodissociation chemistry%rate (H2PDRATE)
   H2PDRATE=K0*G0*H2SHIELD1(NH2,DOPW,RADW)*SCATTER(AV,LAMBDA)/2.0
   !      H2PDRATE=K0*G0*H2SHIELD2(NH2)*SCATTER(AV,LAMBDA)/2.0
 
   RETURN
   END
-  !C=======================================================================
-
-  !C=======================================================================
-  !C
-  !C     !CO photodissociation rate taking into
-  !C     account shielding and grain extinction
-  !C
-  !C-----------------------------------------------------------------------
-  !C
-  !C     Input parameters:
-  !C     K0  = Unattenuated photodissociation rate (in cm^3/s)
-  !C     G0  = Incident FUV field (in Draine units)
-  !C     AV  = visual extinction (in magnitudes)
-  !C     N!CO = !CO column density (in cm^-2)
-  !C     NH2 = H2 column density (in cm^-2)
-  !C
-  !C     Program variables:
-  !C     !COPDRATE = !CO photodissociation rate taking into
-  !C                account self-shielding and grain extinction
-  !C     LAMBDA   = wavelength (in Å) of a typical transition
-  !C
-  !C     Functions called:
-  !C     LBAR     = function to determine the wavelength
-  !C     !COSHIELD = !CO shielding function
-  !C     S!CATTER  = attenuation due to scattering by dust
-  !C
-  !C-----------------------------------------------------------------------
-  FUNCTION COPDRATE(K0,G0,AV,NCO,NH2)
-
-    !      IMPLICIT NONE
-    !      real(kind=dp) :: K0,G0,AV,NCO,NH2
-    !      real(kind=dp) :: LAMBDA,LBAR
-    !      real(kind=dp) :: COSHIELD,SCATTER
-
-    use definitions
-    use healpix_types
-    !     use global_module, only : nh2
-    implicit none
-    real(kind=dp) :: copdrate
-    real(kind=dp), intent(in) :: k0, g0, av, nco
-    !     integer(kind=i4b), intent(in) :: nh2
-    real(kind=dp), intent(in) :: nh2
-    real(kind=dp) :: lambda, lbar, coshield, scatter
-
-
-    LAMBDA=LBAR(NCO,NH2)
-
-    !C     Calculate the CO photodissociation rate (COPDRATE)
-    COPDRATE=K0*G0*COSHIELD(NCO,NH2)*SCATTER(AV,LAMBDA)/2.0
-    RETURN
-    END
-    !C=======================================================================
-
-    !C=======================================================================
-    !C
-    !C     !CI photoionization rate taking into account grain extinction
-    !C     and shielding by !CI and H2 lines, adopting the treatment of
-    !C     Kamp & Bertoldi (2000, A&A, 353, 276, Equation 8)
-    !C
-    !C-----------------------------------------------------------------------
-    !C
-    !C     Input parameters:
-    !C     K0   = Unattenuated photoionization rate (in cm^3/s)
-    !C     G0   = Incident FUV field (in Draine units)
-    !C     AV   = visual extinction (in magnitudes)
-    !C     KAV  = tau(λ)/tau(V) correction factor
-    !C     N!CI  = !CI column density (in cm^-2)
-    !C     NH2  = H2 column density (in cm^-2)
-    !C     TGAS = gas temperature (in K)
-    !C
-    !C     Program variables:
-    !C     !CIPDRATE = !CI photoionization rate taking into
-    !C                account shielding and grain extinction
-    !C     TAU!C     = optical depth in the !CI absorption band
-    !C
-    !C-----------------------------------------------------------------------
-    FUNCTION CIPDRATE(K0,G0,AV,KAV,NCI,NH2,TGAS)
-
-      !      IMPLICIT NONE
-      !      real(kind=dp) :: K0,G0,AV,KAV,NCI,NH2,TGAS
-      !      real(kind=dp) :: TAUC
-
-      use definitions
-      use healpix_types
-      !     use global_module, only : nh2
-      implicit none
-      real(kind=dp) :: cipdrate
-      real(kind=dp), intent(in) :: K0,G0,AV,KAV,NCI,TGAS
-      !     integer(kind=i4b), intent(in) :: nh2
-      real(kind=dp), intent(in) :: nh2
-      real(kind=dp) :: tauc
-
-
-      !C     !Calculate the optical depth in the !CI absorption band, accounting
-      !C     for grain extinction and shielding by !CI and overlapping H2 lines
-      TAUC=KAV*AV+1.1D-17*NCI+(0.9D0*TGAS**0.27D0*(NH2/1.59D21)**0.45D0)
-
-      !C     Calculate the CI photoionization rate (CIPDRATE)
-      CIPDRATE=K0*G0*EXP(-TAUC)/2.0
-
-      RETURN
-      END
-      !C=======================================================================
-
-      !C=======================================================================
-      !C
-      !C     SI photoionization rate -- needs to be implemented!
-      !C     For now, use the standard expression for photorates
-      !C
-      !C-----------------------------------------------------------------------
-      !C
-      !C     Input parameters:
-      !C     K0   = Unattenuated photoionization rate (in cm^3/s)
-      !C     G0   = Incident FUV field (in Draine units)
-      !C     AV   = visual extinction (in magnitudes)
-      !C     KAV  = tau(λ)/tau(V) correction factor
-      !C     NSI  = SI column density (in cm^-2)
-      !C
-      !C     Program variables:
-      !C     SIPDRATE = SI photoionization rate taking into
-      !C                account shielding and grain extinction
-      !C     TAUS     = optical depth in the SI absorption band
-      !C
-      !C-----------------------------------------------------------------------
-      FUNCTION SIPDRATE(K0,G0,AV,KAV)!,NSI)
-
-        !      IMPLICIT NONE
-        !      real(kind=dp) K0,G0,AV,KAV,NSI
-        !      real(kind=dp) TAUS
-
-        use definitions
-        use healpix_types
-        implicit none
-        real(kind=dp) :: sipdrate
-        real(kind=dp), intent(in) :: K0,G0,AV,KAV!,NSI
-        real(kind=dp) :: taus
-        !C     Calculate the optical depth in the SI absorption band, accounting
-        !C     for grain extinction and shielding by ???
-        TAUS=KAV*AV
-
-        !C     Calculate the SI photoionization rate (SIPDRATE)
-        SIPDRATE=K0*G0*EXP(-TAUS)/2.0
-
-        RETURN
-        END
-        !C=======================================================================
-
         !C=======================================================================
         !C
         !C     H2 line self-shielding, adopting the treatment of
@@ -208,7 +61,7 @@ FUNCTION H2PDRATE(K0,G0,AV,NH2)
         !C-----------------------------------------------------------------------
         !C
         !C     Input parameters:
-        !C     NH2  = H2 column density (in cm^-2)
+        !C     NH2  = H2 geometry%column_density density (in cm^-2)
         !C     DOPW = Doppler linewidth (in Hz)
         !C     RADW = radiative linewidth (in Hz)
         !C
@@ -289,16 +142,16 @@ FUNCTION H2PDRATE(K0,G0,AV,NH2)
           !C-----------------------------------------------------------------------
           !C
           !C     Input parameters:
-          !C     NH2 = H2 column density (in cm^-2)
+          !C     NH2 = H2 geometry%column_density density (in cm^-2)
           !C
           !C     Program variables:
           !C     H2SHIELD2 = total H2 shielding factor containing
           !C                 contributions from both H2 and H lines
           !C                 from spline interpolation over the grid
           !C     SH2_GRID  = H2 shielding factors from Lee et al. (1996)
-          !C                 as a function of H2 column density
+          !C                 as a function of H2 geometry%column_density density
           !C     SH2_DERIV = 2nd derivative of SH2_GRID values from SPLINE
-          !C     !COL_GRID  = H2 column densities (in cm^-2)
+          !C     !COL_GRID  = H2 geometry%column_density densities (in cm^-2)
           !C     NUMH2     = number of entries in the table
           !C     START     = .TRUE. when H2SHIELD2 is first called
           !C
@@ -334,88 +187,6 @@ FUNCTION H2PDRATE(K0,G0,AV,NH2)
 
             RETURN
             END
-            !C=======================================================================
-
-            !C=======================================================================
-            !C
-            !C     12!CO line shielding, using the computed values listed in
-            !C     van Dishoeck & Black (1988, ApJ, 334, 771, Table 5)
-            !C
-            !C     Appropriate shielding factors are determined by performing a
-            !C     2-dimensional spline interpolation over the values listed in
-            !C     Table 5 of van Dishoeck & Black, which include contributions
-            !C     from self-shielding and H2 screening
-            !C
-            !C-----------------------------------------------------------------------
-            !C
-            !C     Input parameters:
-            !C     N!CO = !CO column density (in cm^-2)
-            !C     NH2 = H2 column density (in cm^-2)
-            !C
-            !C     Program variables:
-            !C     !COSHIELD  = total 12!CO shielding factor containing
-            !C                 contributions from both H2 and !CO lines
-            !C                 from 2D spline interpolation over the grid
-            !C     S!CO_GRID  = log10 values of the 12!CO shielding factors
-            !C                 from van Dishoeck & Black (1988) as a function
-            !C                 of !CO column density (1st index) and H2 column
-            !C                 density (2nd index)
-            !C     S!CO_DERIV = 2nd derivative of S!CO_GRID values from SPLIE2
-            !C     N!CO_GRID  = log10 values of !CO column densities (in cm^-2)
-            !C     NH2_GRID  = log10 values of H2 column densities (in cm^-2)
-            !C     DIM!CO     = number of !CO column densities
-            !C     DIMH2     = number of H2 column densities
-            !C     START     = .TRUE. when !COSHIELD is first called
-            !C
-            !C     Functions called:
-            !C     SPLIE2 =
-            !C     SPLIN2 =
-            !C
-            !C-----------------------------------------------------------------------
-            FUNCTION COSHIELD(NCO,NH2)
-
-              !      IMPLICIT NONE
-              !      LOGICAL :: START
-              !      INTEGER(kind=i4b) :: DIMCO,DIMH2
-              !      real(kind=dp) ::  NCO,NH2
-              !      real(kind=dp) ::  LOGNCO,LOGNH2
-              !      real(kind=dp) ::  NCO_GRID(8),NH2_GRID(6)
-              !      real(kind=dp) ::  SCO_GRID(8,6),SCO_DERIV(8,6)
-              !      COMMON /STATUS/START
-              !      COMMON /COGRID/SCO_GRID,SCO_DERIV,NCO_GRID,NH2_GRID,DIMCO,DIMH2
-
-              use definitions
-              use healpix_types
-              !     use global_module, only : NCO, NH2
-              use uclpdr_module, only : start, NCO_GRID, NH2_GRID, SCO_GRID, &
-                  & DIMCO, SCO_DERIV, DIMH2, SCO_DERIV
-              implicit none
-              real(kind=dp) :: COSHIELD
-              real(kind=dp) :: LOGNCO, LOGNH2
-              !     integer(kind=i4b), intent(in) :: NCO, NH2
-              real(kind=dp), intent(in) :: nh2, nco
-
-              IF(START) THEN
-                CALL SPLIE2(NCO_GRID,NH2_GRID,SCO_GRID,DIMCO,DIMH2,SCO_DERIV)
-                START=.FALSE.
-              ENDIF
-
-              LOGNCO=DLOG10(NCO+1.0D0)
-              LOGNH2=DLOG10(NH2+1.0D0)
-
-              IF(LOGNCO.LT.NCO_GRID(1)) LOGNCO=NCO_GRID(1)
-              IF(LOGNH2.LT.NH2_GRID(1)) LOGNH2=NH2_GRID(1)
-              IF(LOGNCO.GT.NCO_GRID(DIMCO)) LOGNCO=NCO_GRID(DIMCO)
-              IF(LOGNH2.GT.NH2_GRID(DIMH2)) LOGNH2=NH2_GRID(DIMH2)
-
-              CALL SPLIN2(NCO_GRID,NH2_GRID,SCO_GRID,SCO_DERIV,&
-                  &            DIMCO,DIMH2,LOGNCO,LOGNH2,COSHIELD)
-              COSHIELD=10.0D0**COSHIELD
-
-              RETURN
-              END
-              !C=======================================================================
-
               !C=======================================================================
               !C
               !C     Scattering by dust grains, adopting the treatment of
@@ -431,7 +202,7 @@ FUNCTION H2PDRATE(K0,G0,AV,NH2)
               !C     Program variables:
               !C     S!CATTER = attenuation factor describing the influence of
               !C               grain scattering on the FUV flux, dependening
-              !C               on the total column density and wavelength of
+              !C               on the total geometry%column_density density and wavelength of
               !C               light (assuming albedo=0.3 gscat=0.8)
               !C     TAUV    = optical depth at visual wavelength (λ=5500Å)
               !C     TAUL    = optical depth at wavelength LAMBDA
@@ -547,54 +318,3 @@ FUNCTION H2PDRATE(K0,G0,AV,NH2)
 
                   RETURN
                   END
-                  !C=======================================================================
-
-                  !C=======================================================================
-                  !C
-                  !C     !Calculate the mean wavelength (in Å) of the 33 dissociating bands,
-                  !C     weighted by their fractional contribution to the total shielding
-                  !C     van Dishoeck & Black (1988, ApJ, 334, 771, Equation 4)
-                  !C
-                  !C-----------------------------------------------------------------------
-                  !C
-                  !C     Input parameters:
-                  !C     N!CO = !CO column density (in cm^-2)
-                  !C     NH2 = H2 column density (in cm^-2)
-                  !C
-                  !C     Program variables:
-                  !C     LBAR = mean wavelength (in Å)
-                  !C     U    = log10(N!CO)
-                  !C     W    = log10(NH2)
-                  !C
-                  !C-----------------------------------------------------------------------
-                  FUNCTION LBAR(NCO,NH2)
-
-                    !      IMPLICIT NONE
-                    !      real(kind=dp) ::  NCO,NH2
-                    !      real(kind=dp) ::  U,W
-
-
-                    use definitions
-                    use healpix_types
-                    !     use global_module, only : NCO, NH2
-                    implicit none
-                    real(kind=dp) :: lbar
-                    real(kind=dp) :: U,W
-                    !     integer(kind=i4b), intent(in) :: NCO, NH2
-                    real(kind=dp), intent(in) :: nh2,nco
-
-                    U=DLOG10(NCO+1.0D0)
-                    W=DLOG10(NH2+1.0D0)
-
-                    LBAR=(5675.0D0 - 200.6D0*W) &
-                        &    - (571.6D0 - 24.09D0*W)*U &
-                        &   + (18.22D0 - 0.7664D0*W)*U**2
-
-                    !C     LBAR cannot be larger than the wavelength of band 33 (1076.1Å)
-                    !C     and cannot be smaller than the wavelength of band 1 (913.6Å)
-                    IF(LBAR.LT.913.6D0)  LBAR=913.6D0
-                    IF(LBAR.GT.1076.1D0) LBAR=1076.1D0
-
-                    RETURN
-                    END
-                    !C=======================================================================

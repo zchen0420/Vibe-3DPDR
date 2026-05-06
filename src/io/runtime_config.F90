@@ -14,9 +14,9 @@ contains
 
     call print_banner
 
-    write(6,*) 'Reading input [',trim(config_file),']'
+    write(6,*) 'Reading runtime%input_file [',trim(config_file),']'
     call readparams(trim(config_file))
-    v_turb=v_turb_inp*1.0D5
+    runtime%turbulent_velocity=runtime%input_turbulent_velocity*1.0D5
 
     call validate_runtime_configuration
     call print_runtime_configuration
@@ -53,14 +53,14 @@ contains
   end subroutine validate_runtime_configuration
 
   subroutine print_runtime_configuration
-    write(6,*) 'Input file:               ',input
+    write(6,*) 'Input file:               ',runtime%input_file
     write(6,*) 'HEALPix level:            ',level
     write(6,*) 'Theta critical:           ',theta_crit
     write(6,*) 'Angle between rays:       ',sqrt(pi/3.0D0/4.0D0**(real(level)))
     write(6,*) 'Maxpoints                 ',maxpoints
-    write(6,*) 'Guess Temperature (K):    ',Tguess
+    write(6,*) 'Guess Temperature (K):    ',runtime%temperature_guess
     write(6,*) 'Dust  Temperature (K):    ',dust_temperature
-    write(6,*) 'Turbulent velocity (cm/s):',v_turb
+    write(6,*) 'Turbulent velocity (cm/s):',runtime%turbulent_velocity
     write(6,*) 'minimum density (cm^-3):  ',rho_min
     write(6,*) 'maximum density (cm^-3):  ',rho_max
 #ifdef THERMALBALANCE
@@ -74,8 +74,8 @@ contains
     start = .true.
     write(6,*) 'Form of field:            ',fieldchoice
     write(6,*) 'Gext:                     ',Gext(1)
-    write(6,*) 'AV factor:                ',AV_fac
-    write(6,*) 'UV factor:                ',UV_fac
+    write(6,*) 'AV factor:                ',runtime%av_scale
+    write(6,*) 'UV factor:                ',runtime%uv_scale
 #ifdef REDUCED
     write(6,*) 'Chemical network:           REDUCED'
 #endif
@@ -85,12 +85,12 @@ contains
 #ifdef MYNETWORK
     write(6,*) 'Chemical network:           MYNETWORK'
 #endif
-    write(6,*) 'Number of species:        ',nspec
+    write(6,*) 'Number of chemistry%network%species:        ',nspec
     write(6,*) 'Number of reactions:      ',nreac
-    write(6,*) 'Total iterations:         ',itertot
-    write(6,*) 'Output interval / iter.:  ',iterstep
-    write(6,*) 'Chemiterations:           ',chemiterations
-    write(6,*) 'Zeta:                     ',zeta*1.3d-17
+    write(6,*) 'Total iterations:         ',runtime%total_iterations
+    write(6,*) 'Output interval / iter.:  ',runtime%output_interval
+    write(6,*) 'runtime%chemistry_iterations:           ',runtime%chemistry_iterations
+    write(6,*) 'runtime%cosmic_ray_ionization_rate:                     ',runtime%cosmic_ray_ionization_rate*1.3d-17
     write(6,*) 'Gas-to-dust               ',g2d!*100.0
     write(6,*) 'Metallicity               ',metallicity
     write(6,*) 'Omega                     ',omega

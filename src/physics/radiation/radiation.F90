@@ -1,6 +1,7 @@
 module radiation_module
   use definitions, only : dp
   use healpix_types, only : i4b
+  use ray_path_module, only : projected_point_id, ray_step_length, set_ray_origin_projection
   implicit none
 
 contains
@@ -58,13 +59,14 @@ contains
     integer(kind=i4b) :: eval_index
     integer(kind=i4b) :: selected_ray_index
     real(kind=dp) :: ray_step
+    real(kind=dp) :: guessed_temperature
 
     do grid_id=1,grand_ptot
-      pdr(grid_id)%UVfield = 0.0D0
+      grid%points(grid_id)%UVfield = 0.0D0
     enddo
 
     do pdr_index=1,pdr_ptot
-      grid_id=IDlist_pdr(pdr_index)
+      grid_id=grid%pdr_ids(pdr_index)
       call calculate_point_uvfield(grid_id)
     enddo
 
@@ -73,18 +75,18 @@ contains
     allocate(Tmin_array(0:pdr_ptot))
     allocate(Tmax_array(0:pdr_ptot))
     do pdr_index=1,pdr_ptot
-      Tguess = 10.0D0*(1.0D0+(2.*pdr(IDlist_pdr(pdr_index))%UVfield)**(1.0D0/3.0D0))
-      gastemperature(pdr_index) = Tguess
-      previousgastemperature(pdr_index) = Tguess
+      guessed_temperature = 10.0D0*(1.0D0+(2.*grid%points(grid%pdr_ids(pdr_index))%UVfield)**(1.0D0/3.0D0))
+      thermal%gas_temperature(pdr_index) = guessed_temperature
+      thermal%previous_gas_temperature(pdr_index) = guessed_temperature
 
-      Tlow(pdr_index) = Tguess/2.0D0
-      Thigh(pdr_index) = Tguess*1.5D0
+      thermal%low_temperature(pdr_index) = guessed_temperature/2.0D0
+      thermal%high_temperature(pdr_index) = guessed_temperature*1.5D0
 
-      if (Tlow(pdr_index).lt.Tmin)  Tlow(pdr_index)  = Tmin
-      if (Thigh(pdr_index).gt.Tmax) Thigh(pdr_index) = Tmax
+      if (thermal%low_temperature(pdr_index).lt.Tmin)  thermal%low_temperature(pdr_index)  = Tmin
+      if (thermal%high_temperature(pdr_index).gt.Tmax) thermal%high_temperature(pdr_index) = Tmax
 
-      Tmin_array(pdr_index) = Tlow(pdr_index)/3.0D0
-      Tmax_array(pdr_index) = Thigh(pdr_index)*2.0D0
+      Tmin_array(pdr_index) = thermal%low_temperature(pdr_index)/3.0D0
+      Tmax_array(pdr_index) = thermal%high_temperature(pdr_index)*2.0D0
       if (Tmin_array(pdr_index).lt.Tmin) Tmin_array(pdr_index) = Tmin
       if (Tmax_array(pdr_index).gt.Tmax) Tmax_array(pdr_index) = Tmax
     enddo
@@ -92,13 +94,13 @@ contains
 #endif
 
     if (dark_ptot.gt.0) then
-      grid_id=IDlist_dark(1)
+      grid_id=grid%dark_ids(1)
       call calculate_point_uvfield(grid_id)
-      gastemperature(0)=Tmin
-      previousgastemperature(0)=Tmin
+      thermal%gas_temperature(0)=Tmin
+      thermal%previous_gas_temperature(0)=Tmin
 #ifdef THERMALBALANCE
-      Tlow(0)=Tmin
-      Thigh(0)=Tmin
+      thermal%low_temperature(0)=Tmin
+      thermal%high_temperature(0)=Tmin
 #endif
     endif
 
@@ -107,43 +109,38 @@ contains
     subroutine calculate_point_uvfield(point_id)
       integer(kind=i4b), intent(in) :: point_id
 
-      pdr(point_id)%rad_surface = 0.0D0
-      pdr(point_id)%columndensity = 0.0D0
-      pdr(point_id)%AV = 0.0D0
-      pdr(point_id)%projected(:,0)=point_id
+      grid%points(point_id)%rad_surface = 0.0D0
+      grid%points(point_id)%columndensity = 0.0D0
+      grid%points(point_id)%AV = 0.0D0
+      call set_ray_origin_projection(grid%points(point_id), point_id)
 
       do ray_index=0,nrays-1
-        if (pdr(point_id)%epray(ray_index).gt.0) then
-          do eval_index=1,pdr(point_id)%epray(ray_index)
-            ray_step = sqrt((pdr(point_id)%epoint(1,ray_index,eval_index-1)-&
-                &pdr(point_id)%epoint(1,ray_index,eval_index))**2 + &
-                &(pdr(point_id)%epoint(2,ray_index,eval_index-1)-&
-                &pdr(point_id)%epoint(2,ray_index,eval_index))**2 + &
-                &(pdr(point_id)%epoint(3,ray_index,eval_index-1)-&
-                &pdr(point_id)%epoint(3,ray_index,eval_index))**2)
-            pdr(point_id)%columndensity(ray_index) = pdr(point_id)%columndensity(ray_index) + &
-                &((pdr(int(pdr(point_id)%projected(ray_index,eval_index-1)))%rho + &
-                &pdr(int(pdr(point_id)%projected(ray_index,eval_index)))%rho)/2.)*ray_step*pc
+        if (grid%points(point_id)%epray(ray_index).gt.0) then
+          do eval_index=1,grid%points(point_id)%epray(ray_index)
+            ray_step = ray_step_length(grid%points(point_id), ray_index, eval_index)
+            grid%points(point_id)%columndensity(ray_index) = grid%points(point_id)%columndensity(ray_index) + &
+                &((grid%points(projected_point_id(grid%points(point_id), ray_index, eval_index-1))%rho + &
+                &grid%points(projected_point_id(grid%points(point_id), ray_index, eval_index))%rho)/2.)*ray_step*pc
           enddo
         endif
-        pdr(point_id)%AV(ray_index) = pdr(point_id)%columndensity(ray_index)*AV_fac
+        grid%points(point_id)%AV(ray_index) = grid%points(point_id)%columndensity(ray_index)*runtime%av_scale
       enddo
 
-      if (fieldchoice.eq.'UNI') selected_ray_index = incident_ray_index(Gext(:), vectors, nrays)
+      if (fieldchoice.eq.'UNI') selected_ray_index = incident_ray_index(Gext(:), geometry%ray_vectors, nrays)
 
       do ray_index=0,nrays-1
         if (fieldchoice.eq.'ISO') then
-          pdr(point_id)%rad_surface(ray_index) = Gext(1)/real(nrays,kind=dp)
+          grid%points(point_id)%rad_surface(ray_index) = Gext(1)/real(nrays,kind=dp)
         else if (fieldchoice.eq.'UNI') then
           if (ray_index.eq.selected_ray_index) then
-            pdr(point_id)%rad_surface(ray_index) = -ray_dot_product(Gext(:),vectors(:,ray_index))
+            grid%points(point_id)%rad_surface(ray_index) = -ray_dot_product(Gext(:),geometry%ray_vectors(:,ray_index))
           endif
         endif
       enddo
 
       do ray_index=0,nrays-1
-        pdr(point_id)%UVfield = pdr(point_id)%UVfield + &
-            &attenuated_uv(pdr(point_id)%rad_surface(ray_index), pdr(point_id)%AV(ray_index), UV_fac)
+        grid%points(point_id)%UVfield = grid%points(point_id)%UVfield + &
+            &attenuated_uv(grid%points(point_id)%rad_surface(ray_index), grid%points(point_id)%AV(ray_index), runtime%uv_scale)
       enddo
     end subroutine calculate_point_uvfield
 

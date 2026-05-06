@@ -1,4 +1,5 @@
 module coolants_module
+  use definitions, only : dp
   use healpix_types, only : i4b
   implicit none
 
@@ -12,6 +13,38 @@ module coolants_module
       &'CII ', 'CI  ', 'OI  ', 'CO  '/)
   integer(kind=i4b), parameter :: COOLANT_DEFAULT_NLEVELS_TABLE(COOLANT_COUNT) = (/5, 5, 5, 41/)
   integer(kind=i4b), parameter :: COOLANT_DEFAULT_NTEMPS_TABLE(COOLANT_COUNT) = (/18, 29, 27, 25/)
+
+  type :: coolant_data
+    character(len=128) :: input_file
+    integer(kind=i4b) :: nlevels
+    integer(kind=i4b) :: ntemperatures
+    real(kind=dp), allocatable :: energies(:)
+    real(kind=dp), allocatable :: weights(:)
+    real(kind=dp), allocatable :: a_coeffs(:,:)
+    real(kind=dp), allocatable :: b_coeffs(:,:)
+    real(kind=dp), allocatable :: frequencies(:,:)
+    real(kind=dp), allocatable :: temperatures(:,:)
+    real(kind=dp), allocatable :: hp(:,:,:)
+    real(kind=dp), allocatable :: h(:,:,:)
+    real(kind=dp), allocatable :: el(:,:,:)
+    real(kind=dp), allocatable :: he(:,:,:)
+    real(kind=dp), allocatable :: h2(:,:,:)
+    real(kind=dp), allocatable :: ph2(:,:,:)
+    real(kind=dp), allocatable :: oh2(:,:,:)
+  end type coolant_data
+
+  type :: point_coolant_state
+    real(kind=dp), allocatable :: population(:)
+    real(kind=dp), allocatable :: line(:,:)
+    real(kind=dp), allocatable :: optical_depth(:,:,:)
+  end type point_coolant_state
+
+  type :: coolant_iteration_state
+    real(kind=dp), allocatable :: solution(:,:)
+    real(kind=dp), allocatable :: cooling_rate(:)
+    logical, allocatable :: converged(:)
+    real(kind=dp), allocatable :: relative_change(:,:)
+  end type coolant_iteration_state
 
 contains
 

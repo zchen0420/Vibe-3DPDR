@@ -7,7 +7,7 @@ subroutine escape_probability(transition, dust_temperature, nrays, nlev, &
 
 
   use definitions
-  use maincode_module, only : p,pdr,vectors
+  use maincode_module, only : grid, geometry
   use healpix_types
   use healpix_module
   use global_module, only: g2d
@@ -90,7 +90,7 @@ subroutine escape_probability(transition, dust_temperature, nrays, nlev, &
         else
 #endif
 #ifdef PSEUDO_2D
-          if (abs(vectors(3,j).gt.1d-10) tau_ij(j) = 1.0D50 !Not in Equator
+          if (abs(geometry%ray_vectors(3,j).gt.1d-10) tau_ij(j) = 1.0D50 !Not in Equator
 #endif
 
 
@@ -112,7 +112,7 @@ subroutine escape_probability(transition, dust_temperature, nrays, nlev, &
 #endif
 
 
-      ! Prevent exploding beta values caused by strong masing (tau < -10)
+      ! Prevent exploding chemistry%network%beta values caused by strong masing (tau < -10)
       ! Assume tau = -10 and calculate the escape probability accordingly
       if (tau_ij(j).lt.-5.0D0) then
         beta_ij_ray(j)=(1.0D0-EXP(5.0D0))/(-5.0D0)

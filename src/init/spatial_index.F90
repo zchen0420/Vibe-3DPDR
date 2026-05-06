@@ -1,6 +1,7 @@
 module spatial_index_module
   use definitions
   use healpix_types
+  use geometry_state_module, only : allocate_spatial_order
   use maincode_module
 
 contains
@@ -11,66 +12,46 @@ contains
   end subroutine prepare_spatial_index_inputs
 
   subroutine swap_last_two_pdr_points
-    real(kind=dp), allocatable :: x_rev(:), y_rev(:), z_rev(:), n_rev(:)
+    integer(kind=i4b) :: point_id, point_index
+    real(kind=dp), allocatable :: position_rev(:,:), density_rev(:)
 
     if (pdr_ptot.lt.2) return
 
-    allocate(x_rev(1:pdr_ptot))
-    allocate(y_rev(1:pdr_ptot))
-    allocate(z_rev(1:pdr_ptot))
-    allocate(n_rev(1:pdr_ptot))
+    allocate(position_rev(1:3,1:pdr_ptot))
+    allocate(density_rev(1:pdr_ptot))
 
-    do pp=1,pdr_ptot-2
-      p=IDlist_pdr(pp)
-      x_rev(pp)=pdr(p)%x
-      y_rev(pp)=pdr(p)%y
-      z_rev(pp)=pdr(p)%z
-      n_rev(pp)=pdr(p)%rho
+    do point_index=1,pdr_ptot-2
+      point_id=grid%pdr_ids(point_index)
+      position_rev(1:3,point_index)=grid%points(point_id)%position
+      density_rev(point_index)=grid%points(point_id)%rho
     enddo
 
-    x_rev(pdr_ptot-1)=pdr(IDlist_pdr(pdr_ptot))%x
-    y_rev(pdr_ptot-1)=pdr(IDlist_pdr(pdr_ptot))%y
-    z_rev(pdr_ptot-1)=pdr(IDlist_pdr(pdr_ptot))%z
-    n_rev(pdr_ptot-1)=pdr(IDlist_pdr(pdr_ptot))%rho
+    position_rev(1:3,pdr_ptot-1)=grid%points(grid%pdr_ids(pdr_ptot))%position
+    density_rev(pdr_ptot-1)=grid%points(grid%pdr_ids(pdr_ptot))%rho
 
-    x_rev(pdr_ptot)=pdr(IDlist_pdr(pdr_ptot-1))%x
-    y_rev(pdr_ptot)=pdr(IDlist_pdr(pdr_ptot-1))%y
-    z_rev(pdr_ptot)=pdr(IDlist_pdr(pdr_ptot-1))%z
-    n_rev(pdr_ptot)=pdr(IDlist_pdr(pdr_ptot-1))%rho
+    position_rev(1:3,pdr_ptot)=grid%points(grid%pdr_ids(pdr_ptot-1))%position
+    density_rev(pdr_ptot)=grid%points(grid%pdr_ids(pdr_ptot-1))%rho
 
-    do pp=1,pdr_ptot
-      p=IDlist_pdr(pp)
-      pdr(p)%x=x_rev(pp)
-      pdr(p)%y=y_rev(pp)
-      pdr(p)%z=z_rev(pp)
-      pdr(p)%rho=n_rev(pp)
+    do point_index=1,pdr_ptot
+      point_id=grid%pdr_ids(point_index)
+      grid%points(point_id)%position=position_rev(1:3,point_index)
+      grid%points(point_id)%rho=density_rev(point_index)
     enddo
 
-    deallocate(x_rev)
-    deallocate(y_rev)
-    deallocate(z_rev)
-    deallocate(n_rev)
+    deallocate(position_rev)
+    deallocate(density_rev)
   end subroutine swap_last_two_pdr_points
 
   subroutine build_pdr_point_index
-    allocate(rra(0:pdr_ptot))
-    allocate(rrb(1:pdr_ptot))
-    allocate(pdrpoint(1:3,0:pdr_ptot)) !0 is for the ONE molecular element
+    integer(kind=i4b) :: point_id, point_index
 
-    do pp=1,pdr_ptot
-      p=IDlist_pdr(pp)
-      rra(pp) = sqrt(pdr(p)%x**2+pdr(p)%y**2+pdr(p)%z**2)
-      rrb(pp) = p
-      pdrpoint(1,pp) = pdr(p)%x
-      pdrpoint(2,pp) = pdr(p)%y
-      pdrpoint(3,pp) = pdr(p)%z
+    call allocate_spatial_order(geometry, pdr_ptot)
+
+    do point_index=1,pdr_ptot
+      point_id=grid%pdr_ids(point_index)
+      geometry%radial_order(point_index) = sqrt(sum(grid%points(point_id)%position**2))
+      geometry%point_order(point_index) = point_id
     enddo
-
-    if (dark_ptot.gt.0) then
-      pdrpoint(1,0) = pdr(IDlist_dark(1))%x
-      pdrpoint(2,0) = pdr(IDlist_dark(1))%y
-      pdrpoint(3,0) = pdr(IDlist_dark(1))%z
-    endif
   end subroutine build_pdr_point_index
 
 end module spatial_index_module

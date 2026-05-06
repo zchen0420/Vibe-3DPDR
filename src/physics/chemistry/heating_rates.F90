@@ -4,14 +4,15 @@
 !     Calculate the total heating rate at the current grid point.
 !
 !-----------------------------------------------------------------------
-SUBROUTINE CALC_HEATING(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
+SUBROUTINE calculate_heating_rates(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
       & UV_FIELD,V_TURB,NSPEC,ABUNDANCE,NREAC,RATE,HEATING_RATE,&
       & NRGR,NRH2,NRHD,NRCO,NRCI,NRSI)
 
   USE DEFINITIONS
   USE HEALPIX_TYPES
   USE GLOBAL_MODULE
-  USE MAINCODE_MODULE, ONLY : UV_FAC, ZETA
+  USE HEATING_RATE_KERNELS_MODULE
+  USE MAINCODE_MODULE, ONLY : runtime
 
   IMPLICIT NONE
 
@@ -40,12 +41,6 @@ SUBROUTINE CALC_HEATING(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
 
   !     H2* FUV pumping heating
   REAL(KIND=DP) :: NCR_H2
-
-  !     Turbulent heating
-  REAL(KIND=DP) :: L_TURB
-
-  !     Gas-grain coupling heating/cooling
-  REAL(KIND=DP) :: ACCOMMODATION,NGRAIN,CGRAIN
 
   !!     Soft X-ray heating
   !      REAL(KIND=DP) :: PP1,PP2,F6
@@ -154,7 +149,7 @@ SUBROUTINE CALC_HEATING(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
   !     1 eV on average per carbon ionization
   !     Use the C photoionization rate determined by the CALCULATE_REACTION_RATES subroutine: RATE(NRCI) [units: s^-1]
   !-----------------------------------------------------------------------
-  CIONIZATION_HEATING=(1.0*EV)*RATE(NRCI)*ABUNDANCE(NC)*DENSITY
+  CIONIZATION_HEATING=(1.0*EV)*RATE(NRCI)*ABUNDANCE(species_idx%NC)*DENSITY
   !-----------------------------------------------------------------------
   !     H2 formation heating
   !
@@ -163,7 +158,7 @@ SUBROUTINE CALC_HEATING(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
   !     Use the rate determined by the CALCULATE_REACTION_RATES subroutine: RATE(NRGR) [units: cm^3.s^-1]
   !-----------------------------------------------------------------------
 
-  H2FORMATION_HEATING=(1.5*EV)*RATE(NRGR)*DENSITY*ABUNDANCE(NH)*DENSITY
+  H2FORMATION_HEATING=(1.5*EV)*RATE(NRGR)*DENSITY*ABUNDANCE(species_idx%NH)*DENSITY
 
   !-----------------------------------------------------------------------
   !     H2 photodissociation heating
@@ -172,7 +167,7 @@ SUBROUTINE CALC_HEATING(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
   !     Use the rate determined by the CALCULATE_REACTION_RATES subroutine: RATE(NRH2) [units: s^-1]
   !-----------------------------------------------------------------------
 
-  H2PHOTODISS_HEATING=(0.4*EV)*RATE(NRH2)*ABUNDANCE(NH2)*DENSITY
+  H2PHOTODISS_HEATING=(0.4*EV)*RATE(NRH2)*ABUNDANCE(species_idx%NH2)*DENSITY
 
   !-----------------------------------------------------------------------
   !     H2 FUV pumping heating
@@ -183,10 +178,10 @@ SUBROUTINE CALC_HEATING(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
   !     Use the H2 critical density calculation from Hollenbach & McKee (1979)
   !-----------------------------------------------------------------------
 
-  NCR_H2=1.0D6/SQRT(GAS_TEMPERATURE)/(1.6D0*ABUNDANCE(NH)*EXP(-((400.0D0/GAS_TEMPERATURE)**2)) &
-      & + 1.4D0*ABUNDANCE(NH2)*EXP(-(18100.0D0/(GAS_TEMPERATURE+1200.0D0))))
+  NCR_H2=1.0D6/SQRT(GAS_TEMPERATURE)/(1.6D0*ABUNDANCE(species_idx%NH)*EXP(-((400.0D0/GAS_TEMPERATURE)**2)) &
+      & + 1.4D0*ABUNDANCE(species_idx%NH2)*EXP(-(18100.0D0/(GAS_TEMPERATURE+1200.0D0))))
 
-  FUVPUMPING_HEATING=(2.2*EV)*9.0D0*RATE(NRH2)*ABUNDANCE(NH2)*DENSITY/(1.0D0+NCR_H2/DENSITY)
+  FUVPUMPING_HEATING=(2.2*EV)*9.0D0*RATE(NRH2)*ABUNDANCE(species_idx%NH2)*DENSITY/(1.0D0+NCR_H2/DENSITY)
 
   !-----------------------------------------------------------------------
   !     Cosmic-ray ionization heating
@@ -197,9 +192,9 @@ SUBROUTINE CALC_HEATING(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
   !               Clavel et al. (1978), Kamp & van Zadelhoff (2001)
   !-----------------------------------------------------------------------
 
-  !      COSMICRAY_HEATING=(20.0*EV)*(1.3D-17*ZETA)*DENSITY*ABUNDANCE(NH2) !20.0 -> 9.4 eV
-  COSMICRAY_HEATING=(9.4*EV)*(1.3D-17*ZETA)*DENSITY*ABUNDANCE(NH2) !20.0 -> 9.4 eV
-  !      COSMICRAY_HEATING=(9.4*EV)*(1.3D-17*ZETA)*DENSITY
+  !      COSMICRAY_HEATING=(20.0*EV)*(1.3D-17*runtime%cosmic_ray_ionization_rate)*DENSITY*ABUNDANCE(species_idx%NH2) !20.0 -> 9.4 eV
+  COSMICRAY_HEATING=cosmic_ray_heating_rate(runtime%cosmic_ray_ionization_rate,DENSITY,ABUNDANCE(species_idx%NH2))
+  !      COSMICRAY_HEATING=(9.4*EV)*(1.3D-17*runtime%cosmic_ray_ionization_rate)*DENSITY
 
   !-----------------------------------------------------------------------
   !     Supersonic turbulent decay heating
@@ -212,8 +207,7 @@ SUBROUTINE CALC_HEATING(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
   !     L_TURB = turbulent scale length (pc); typically 5 pc
   !-----------------------------------------------------------------------
 
-  L_TURB=5.0D0
-  TURBULENT_HEATING=3.5D-28*((V_TURB/1.0D5)**3)*(1.0D0/L_TURB)*DENSITY
+  TURBULENT_HEATING=turbulent_heating_rate(V_TURB,DENSITY)
 
   !-----------------------------------------------------------------------
   !     Exothermic chemical reaction heating
@@ -226,37 +220,37 @@ SUBROUTINE CALC_HEATING(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
   !-----------------------------------------------------------------------
 
 #ifdef REDUCED
-  CHEMICAL_HEATING=ABUNDANCE(NH2x)*DENSITY*ABUNDANCE(NELECT)*RATE(216)*10.9*EV& !H2+ + e-
-      & + ABUNDANCE(NH2x)*DENSITY*ABUNDANCE(NH)*RATE(155)*0.94*EV& !H2+ + H
-      & + ABUNDANCE(NHCOx)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(240)*(7.51*EV)) &                                         ! HCO+ + e-
-      & + ABUNDANCE(NH3x)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(217)*(4.76*EV)+RATE(218)*(9.23*EV)) &                      ! H3+  + e-
-      & + ABUNDANCE(NH3Ox)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(236)*(1.16*EV)+&
+  CHEMICAL_HEATING=ABUNDANCE(species_idx%NH2x)*DENSITY*ABUNDANCE(NELECT)*RATE(216)*10.9*EV& !H2+ + e-
+      & + ABUNDANCE(species_idx%NH2x)*DENSITY*ABUNDANCE(species_idx%NH)*RATE(155)*0.94*EV& !H2+ + H
+      & + ABUNDANCE(species_idx%NHCOx)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(240)*(7.51*EV)) &                                         ! HCO+ + e-
+      & + ABUNDANCE(species_idx%NH3x)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(217)*(4.76*EV)+RATE(218)*(9.23*EV)) &                      ! H3+  + e-
+      & + ABUNDANCE(species_idx%NH3Ox)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(236)*(1.16*EV)+&
       &RATE(237)*(5.63*EV)+RATE(238)*(6.27*EV)) &                                                                            ! H3O+ + e-
-      & + ABUNDANCE(NHEx)*DENSITY*ABUNDANCE(NH2)*DENSITY*(RATE(50)*(6.51*EV)+RATE(170)*(6.51*EV)) &                          ! He+  + H2
-      & + ABUNDANCE(NHEx)*DENSITY*ABUNDANCE(NCO)*DENSITY*(RATE(89)*(2.22*EV)+RATE(90)*(2.22*EV)+&
+      & + ABUNDANCE(species_idx%NHEx)*DENSITY*ABUNDANCE(species_idx%NH2)*DENSITY*(RATE(50)*(6.51*EV)+RATE(170)*(6.51*EV)) &                          ! He+  + H2
+      & + ABUNDANCE(species_idx%NHEx)*DENSITY*ABUNDANCE(species_idx%NCO)*DENSITY*(RATE(89)*(2.22*EV)+RATE(90)*(2.22*EV)+&
       &RATE(91)*(2.22*EV))          ! He+  + CO
 #endif
 
 #ifdef FULL
-  CHEMICAL_HEATING=ABUNDANCE(NHCOx)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(730)*(7.51*EV)) &                                         ! HCO+ + e-
-      & + ABUNDANCE(NH3x)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(706)*(4.76*EV)+RATE(705)*(9.23*EV)) &                      ! H3+  + e-
-      & + ABUNDANCE(NH3Ox)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(717)*(1.16*EV)+&
+  CHEMICAL_HEATING=ABUNDANCE(species_idx%NHCOx)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(730)*(7.51*EV)) &                                         ! HCO+ + e-
+      & + ABUNDANCE(species_idx%NH3x)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(706)*(4.76*EV)+RATE(705)*(9.23*EV)) &                      ! H3+  + e-
+      & + ABUNDANCE(species_idx%NH3Ox)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(717)*(1.16*EV)+&
       &RATE(716)*(5.63*EV)+RATE(714)*(6.27*EV)) &                                                                            ! H3O+ + e-
-      & + ABUNDANCE(NHEx)*DENSITY*ABUNDANCE(NH2)*DENSITY*(RATE(1227)*(6.51*EV)+RATE(265)*(6.51*EV)) &                          ! He+  + H2
-      & + ABUNDANCE(NHEx)*DENSITY*ABUNDANCE(NCO)*DENSITY*(RATE(1541)*(2.22*EV))
+      & + ABUNDANCE(species_idx%NHEx)*DENSITY*ABUNDANCE(species_idx%NH2)*DENSITY*(RATE(1227)*(6.51*EV)+RATE(265)*(6.51*EV)) &                          ! He+  + H2
+      & + ABUNDANCE(species_idx%NHEx)*DENSITY*ABUNDANCE(species_idx%NCO)*DENSITY*(RATE(1541)*(2.22*EV))
 #endif
 
 #ifdef MYNETWORK
   STOP "CHEMICAL_HEATING function has to be declared at &
-      & [sub_calculate_heating.F90] &
+      & [heating_rates.F90] &
       If you are using the pre-set 'mynetwork' network comment &
-      & out this STOP [sub_calculate_heating.F90]"
-  CHEMICAL_HEATING=ABUNDANCE(NHCOx)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(185)*(7.51*EV)) &                                         ! HCO+ + e-
-      & + ABUNDANCE(NH3x)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(173)*(4.76*EV)+RATE(172)*(9.23*EV)) &                      ! H3+  + e-
-      & + ABUNDANCE(NH3Ox)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(179)*(1.16*EV)+&
+      & out this STOP [heating_rates.F90]"
+  CHEMICAL_HEATING=ABUNDANCE(species_idx%NHCOx)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(185)*(7.51*EV)) &                                         ! HCO+ + e-
+      & + ABUNDANCE(species_idx%NH3x)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(173)*(4.76*EV)+RATE(172)*(9.23*EV)) &                      ! H3+  + e-
+      & + ABUNDANCE(species_idx%NH3Ox)*DENSITY*ABUNDANCE(NELECT)*DENSITY*(RATE(179)*(1.16*EV)+&
       &RATE(178)*(5.63*EV)+RATE(176)*(6.27*EV)) &                                                                            ! H3O+ + e-
-      & + ABUNDANCE(NHEx)*DENSITY*ABUNDANCE(NH2)*DENSITY*(RATE(297)*(6.51*EV)+RATE(67)*(6.51*EV)) &                          ! He+  + H2
-      & + ABUNDANCE(NHEx)*DENSITY*ABUNDANCE(NCO)*DENSITY*(RATE(364)*(2.22*EV))
+      & + ABUNDANCE(species_idx%NHEx)*DENSITY*ABUNDANCE(species_idx%NH2)*DENSITY*(RATE(297)*(6.51*EV)+RATE(67)*(6.51*EV)) &                          ! He+  + H2
+      & + ABUNDANCE(species_idx%NHEx)*DENSITY*ABUNDANCE(species_idx%NCO)*DENSITY*(RATE(364)*(2.22*EV))
 #endif
 
   !-----------------------------------------------------------------------
@@ -281,12 +275,7 @@ SUBROUTINE CALC_HEATING(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
   !     This value has been used in the expression below
   !-----------------------------------------------------------------------
   !
-  ACCOMMODATION=0.35D0*EXP(-SQRT((DUST_TEMPERATURE+GAS_TEMPERATURE)/5.0D2))+0.1D0
-  NGRAIN=1.998D-12*DENSITY*METALLICITY*100./g2d
-  CGRAIN=PI*GRAIN_RADIUS**2
-
-  GASGRAIN_HEATING=4.003D-12*DENSITY*NGRAIN*CGRAIN*ACCOMMODATION*SQRT(GAS_TEMPERATURE) &
-      & *(DUST_TEMPERATURE-GAS_TEMPERATURE)
+  GASGRAIN_HEATING=gas_grain_exchange_rate(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE)
 
   ! Gas-grain collisional heating (Tielens 2005 ISM book)
   !      GASGRAIN_HEATING=-1d-33*DENSITY**2*sqrt(GAS_TEMPERATURE)*(GAS_TEMPERATURE-DUST_TEMPERATURE)
@@ -330,18 +319,10 @@ SUBROUTINE CALC_HEATING(DENSITY,GAS_TEMPERATURE,DUST_TEMPERATURE, &
   !           & + SOFTXRAY_HEATING &
       & + GASGRAIN_HEATING
 
-  HEATING_RATE(1)=PHOTOELECTRIC_HEATING
-  HEATING_RATE(2)=PAHPHOTOELEC_HEATING
-  HEATING_RATE(3)=WEINGARTNER_HEATING
-  HEATING_RATE(4)=CIONIZATION_HEATING
-  HEATING_RATE(5)=H2FORMATION_HEATING
-  HEATING_RATE(6)=H2PHOTODISS_HEATING
-  HEATING_RATE(7)=FUVPUMPING_HEATING
-  HEATING_RATE(8)=COSMICRAY_HEATING
-  HEATING_RATE(9)=TURBULENT_HEATING
-  HEATING_RATE(10)=CHEMICAL_HEATING
-  HEATING_RATE(11)=GASGRAIN_HEATING
-  HEATING_RATE(12)=TOTAL_HEATING
+  call store_heating_rates(HEATING_RATE,PHOTOELECTRIC_HEATING,PAHPHOTOELEC_HEATING, &
+      & WEINGARTNER_HEATING,CIONIZATION_HEATING,H2FORMATION_HEATING,H2PHOTODISS_HEATING, &
+      & FUVPUMPING_HEATING,COSMICRAY_HEATING,TURBULENT_HEATING,CHEMICAL_HEATING, &
+      & GASGRAIN_HEATING,TOTAL_HEATING)
 
   !-----------------------------------------------------------------------
 
@@ -383,8 +364,5 @@ CONTAINS ! Dust photoelectric heating functions...
   END FUNCTION FF
   !-----------------------------------------------------------------------
 
-END SUBROUTINE CALC_HEATING
+END SUBROUTINE calculate_heating_rates
 !=======================================================================
-
-
-

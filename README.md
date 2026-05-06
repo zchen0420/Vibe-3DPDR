@@ -1,14 +1,59 @@
-# 3D-PDR
+# Vibe-3DPDR
 
-3D-PDR is a photodissociation region simulation code for evolving chemistry,
-line level populations, radiative quantities, and thermal balance on a grid.
-This repository is now reorganized around three top-level program phases:
-reading inputs, initialising memory and calculation structures, and evolving
-the simulation to convergence.
+This repository is a vibe-coding refactor based on my short participation in
+the original project. The goal is not to change the scientific model casually,
+but to make the code easier to read, build, test, extend, and discuss.
 
-This project is fully built via vibe coding based on my short participation in the project.
+## What This Vibe Edition Adds
 
-## Build
+The current work focuses on engineering clarity around the existing Fortran
+codebase:
+
+- Reorganized the source tree around clear responsibilities: input/output,
+  initialization, evolution flow, and physics kernels.
+- Split the former flat `physics` directory into domain subdirectories:
+  chemistry, core state, geometry, numerics, radiation, and state types.
+- Moved global runtime, grid, thermal, geometry, chemistry, species, and coolant
+  state into more explicit modules and derived types.
+- Separated the main program into a small orchestration entry point at
+  `src/main.F90`.
+- Added a structured `build/` layout for object files, module files, test
+  binaries, and check logs.
+- Added focused unit tests for extracted numerical and convergence helpers.
+- Tightened many module imports with explicit `only` lists to make dependencies
+  easier to understand.
+- Renamed legacy abbreviated files and procedures toward lowercase
+  `snake_case` names, for example `reaction_rates`, `heating_rates`,
+  `collision_coefficients`, and `level_population_system`.
+
+Readers can find the calculation phase they care about, run tests
+before changing behavior, and see where future modularization should happen.
+
+## Source Organization
+
+- `src`
+  - `main.F90`: program entry point and top-level orchestration.
+  - `io`: parameter handling, input readers, runtime configuration, and final
+    output writers.
+  - `init`: memory allocation, initial conditions, spatial indexing, particle
+    storage, and geometry setup.
+  - `evolution`: simulation setup, chemistry refreshes, level population
+    solving, thermal balance, and convergence checks.
+  - `physics`
+    - `core`: shared definitions, global parameters, species indices,
+      HEALPix types, and the main state module.
+    - `state`: derived types for chemistry, coolant, geometry, thermal,
+      and grid state.
+    - `chemistry`: reaction rates, heating rates, H2 formation, CVODE
+      abundance integration, ODE systems, and Jacobians.
+    - `radiation`: columns, radiation field helpers, shielding,
+      photo-rate interfaces, dust temperature, and escape probability.
+    - `geometry`: HEALPix utilities and evaluation point construction.
+    - `numerics`: convergence helpers, excitation helpers, linear
+      solves, sorting, splines, and collision coefficient interpolation.
+- `tests`: focused unit tests for extracted helpers.
+
+## Build And Use
 
 Requirements:
 
@@ -22,7 +67,13 @@ Build the executable:
 make
 ```
 
-Run the verification suite:
+Run unit tests:
+
+```sh
+make unit-test
+```
+
+Run the default regression check:
 
 ```sh
 make check
@@ -44,8 +95,6 @@ make clean
 The `.bin/` directory is intentionally left alone by cleanup because it may
 contain the local SUNDIALS runtime.
 
-## Configuration
-
 The default runtime configuration is:
 
 ```text
@@ -64,7 +113,7 @@ Run with another parameter file:
 ./3DPDR path/to/your.params
 ```
 
-The main compile-time switches live in `makefile`:
+The main compile-time switches live in `Makefile`:
 
 - `DIMENSIONS`: `1`, `2`, or full 3D mode by omission of pseudo flags
 - `NETWORK`: `REDUCED`, `FULL`, or `MYNETWORK`
@@ -78,8 +127,6 @@ Example:
 make clean
 make NETWORK=FULL DIMENSIONS=1 check
 ```
-
-## Usage
 
 The default example uses `data/1Dn30.dat` and writes outputs with the `V1`
 prefix:
@@ -97,24 +144,14 @@ The regression check asserts that the default run converges with:
 RESULT status=converged iterations=227
 ```
 
-## Source Layout
+## Inheritance And Thanks
 
-- `src/app/3DPDR.F90`: main program and top-level orchestration of the read, init, and evolve phases
-- `src/io`: parameter handling, input file readers, and final output writers
-- `src/init`: memory allocation, initial conditions, spatial indexing, and geometry setup
-- `src/evolution`: iteration setup, chemistry refreshes, level populations, thermal balance, and convergence
-- `src/physics`: physical constants, global state modules, radiative/column/cooling helpers, HEALPix utilities, and numerical kernels
-- `src/physics/chemistry/*.c`: CVODE abundance integration, ODE systems, and Jacobians
-- `tests/*.F90`: focused unit tests for extracted numerical helpers
+This project inherits from the original 3D-PDR code developed by Thomas G.
+Bisbas, Tom A. Bell, and collaborators listed in the original program banner.
+The scientific foundation belongs to that lineage.
 
-## Acknowledgements
+I am especially grateful to Thomas for letting me participate in the project. That experience made this vibe edition possible.
 
-Original 3D-PDR development is credited to Thomas G. Bisbas, Tom A. Bell, and
-collaborators listed in the original program banner. Special thanks to Thomas
-for making this codebase possible and helping me.
-
-This refactor was completed by Zhousi Chen through vibe coding, finishing
-engineering cleanup and modularisation work that had not been completed before.
-
-Future plans include migrating the workflow toward Python-facing interfaces and
-GPU computation.
+After this Fortran refactor is completed, I plan to create a  Python version
+to continue exploring a more usable philosophy of scientific code organization.
+Feel free to leave any comment on this project.
