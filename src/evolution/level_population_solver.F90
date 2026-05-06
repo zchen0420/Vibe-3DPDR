@@ -1,7 +1,10 @@
 module level_population_solver_module
   use definitions, only : dp
   use healpix_types, only : i4b
-  use coolants_module, only : COOLANT_COUNT, COOLANT_CII, COOLANT_CI, COOLANT_OI, COOLANT_C12O
+  use collision_coefficients_module, only : calculate_collision_coefficients
+  use coolants_module, only : COLLIDER_ELECTRON, COLLIDER_H, COLLIDER_H2, COLLIDER_HE, COLLIDER_ORTHO_H2, &
+      &COLLIDER_PARA_H2, COLLIDER_PROTON, COLLISION_PARTNER_COUNT, COOLANT_COUNT, COOLANT_CII, COOLANT_CI, &
+      &COOLANT_OI, COOLANT_C12O
   use maincode_module, only : coolant, coolant_iteration, grid, levpop_iteration, maxpoints, nrays, pdr_ptot, runtime, thermal
   use global_module, only : metallicity, NELECT, species_idx
   use convergence_module, only : set_lte_populations
@@ -14,7 +17,6 @@ module level_population_solver_module
     integer(kind=i4b) :: coolant_id
     integer(kind=i4b) :: species_abundance_index
     integer(kind=i4b) :: level_count
-    integer(kind=i4b) :: temperature_count
     real(kind=dp), allocatable :: collision_coefficients(:,:)
     real(kind=dp), allocatable :: transition(:,:)
     real(kind=dp), allocatable :: line(:,:)
@@ -69,7 +71,6 @@ contains
     work_item%coolant_id = coolant_id
     work_item%species_abundance_index = species_abundance_index
     work_item%level_count = coolant(coolant_id)%nlevels
-    work_item%temperature_count = coolant(coolant_id)%ntemperatures
   end subroutine initialize_coolant_work
 
   subroutine allocate_coolant_workspace(work_item)
@@ -195,20 +196,41 @@ contains
       type(coolant_work_item), intent(inout) :: work_item
       integer(kind=i4b), intent(in) :: target_point_index
       integer(kind=i4b), intent(in) :: target_point_id
+      real(kind=dp) :: collider_density(1:COLLISION_PARTNER_COUNT)
 
-      call find_collision_coefficients(work_item%temperature_count,work_item%level_count, &
-          & thermal%gas_temperature(target_point_index),coolant(work_item%coolant_id)%temperatures, &
-          & coolant(work_item%coolant_id)%h,coolant(work_item%coolant_id)%hp, &
-          & coolant(work_item%coolant_id)%el,coolant(work_item%coolant_id)%he, &
-          & coolant(work_item%coolant_id)%h2,coolant(work_item%coolant_id)%ph2, &
-          & coolant(work_item%coolant_id)%oh2,work_item%collision_coefficients, &
-          & abundance_density(target_point_id, species_idx%NH), &
-          & abundance_density(target_point_id, species_idx%NPROTON), &
-          & abundance_density(target_point_id, NELECT), &
-          & abundance_density(target_point_id, species_idx%NHe), &
-          & abundance_density(target_point_id, species_idx%NH2), &
-          & work_item%coolant_id)
+      call calculate_collider_densities(thermal%gas_temperature(target_point_index), target_point_id, collider_density)
+      call calculate_collision_coefficients(coolant(work_item%coolant_id), thermal%gas_temperature(target_point_index), &
+          &collider_density, work_item%collision_coefficients)
     end subroutine update_collision_rates
+
+    subroutine calculate_collider_densities(gas_temperature, point_id, collider_density)
+      real(kind=dp), intent(in) :: gas_temperature
+      integer(kind=i4b), intent(in) :: point_id
+      real(kind=dp), intent(out) :: collider_density(1:COLLISION_PARTNER_COUNT)
+
+      real(kind=dp) :: h2_density
+      real(kind=dp) :: ortho_h2_fraction
+      real(kind=dp) :: para_h2_fraction
+
+      collider_density = 0.0D0
+      h2_density = abundance_density(point_id, species_idx%NH2)
+
+      if (h2_density.gt.0.0D0) then
+        para_h2_fraction = 1.0D0/(1.0D0+9.0D0*exp(-170.5D0/gas_temperature))
+        ortho_h2_fraction = 1.0D0 - para_h2_fraction
+      else
+        para_h2_fraction = 0.0D0
+        ortho_h2_fraction = 0.0D0
+      endif
+
+      collider_density(COLLIDER_H2) = h2_density
+      collider_density(COLLIDER_PARA_H2) = h2_density*para_h2_fraction
+      collider_density(COLLIDER_ORTHO_H2) = h2_density*ortho_h2_fraction
+      collider_density(COLLIDER_ELECTRON) = abundance_density(point_id, NELECT)
+      collider_density(COLLIDER_H) = abundance_density(point_id, species_idx%NH)
+      collider_density(COLLIDER_HE) = abundance_density(point_id, species_idx%NHe)
+      collider_density(COLLIDER_PROTON) = abundance_density(point_id, species_idx%NPROTON)
+    end subroutine calculate_collider_densities
 
     subroutine update_lvg_transition_rates(work_item, target_point_index, target_point_id)
       type(coolant_work_item), intent(inout) :: work_item

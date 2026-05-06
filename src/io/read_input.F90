@@ -1,259 +1,176 @@
-!-----------------------------------------------------------------------
-!     Read atomic/molecular datafile (in LAMDA/RADEX format)
-!     The standard LAMDA/RADEX datafile format is used:
-!     http://www.strw.leidenuniv.nl/~moldata/molformat.html
-!-----------------------------------------------------------------------
-SUBROUTINE READINPUT(FILENAME,NLEV,NTEMP,ENERGIES,WEIGHTS,&
-      &                     A_COEFFS,B_COEFFS,FREQUENCIES,TEMPERATURES,&
-      &                     H_COL,HP_COL,EL_COL,HE_COL,H2_COL,PH2_COL,OH2_COL)
-
-  !T.Bell
-
-  use healpix_types
-
+module coolant_input_module
+  use coolants_module, only : COLLISION_PARTNER_COUNT, coolant_data
+  use healpix_types, only : c, dp, hp, i4b, kb
   implicit none
-  INTEGER(kind=I4B), INTENT(IN)::NLEV
-  INTEGER(kind=I4B), INTENT(IN)::NTEMP
-  CHARACTER(len=*),INTENT(IN)::FILENAME
 
-  real(kind=dp), intent(out)::ENERGIES(1:NLEV), WEIGHTS(1:NLEV)
-  real(kind=dp), intent(out)::A_COEFFS(1:NLEV,1:NLEV), B_COEFFS(1:NLEV,1:NLEV)
-  real(kind=dp), intent(out)::FREQUENCIES(1:NLEV,1:NLEV), TEMPERATURES(1:7,1:NTEMP)
-  real(kind=dp), intent(out)::H_COL(1:NLEV,1:NLEV,1:NTEMP)
-  real(kind=dp), intent(out)::HP_COL(1:NLEV,1:NLEV,1:NTEMP)
-  real(kind=dp), intent(out)::EL_COL(1:NLEV,1:NLEV,1:NTEMP)
-  real(kind=dp), intent(out)::HE_COL(1:NLEV,1:NLEV,1:NTEMP)
-  real(kind=dp), intent(out)::H2_COL(1:NLEV,1:NLEV,1:NTEMP)
-  real(kind=dp), intent(out)::PH2_COL(1:NLEV,1:NLEV,1:NTEMP)
-  real(kind=dp), intent(out)::OH2_COL(1:NLEV,1:NLEV,1:NTEMP)
+contains
 
-  INTEGER(kind=I4B)::NLIN,NPART,NCOL
-  INTEGER(kind=I4B)::I,J,K,L,M,N,P
-  real(kind=dp):: ENERGY,WEIGHT,EINSTEINA,FREQUENCY
-  real(kind=dp)::COEFF(1:NTEMP)
+  subroutine read_lamda_coolant_file(coolant_table)
+    type(coolant_data), intent(inout) :: coolant_table
 
+    integer(kind=i4b), parameter :: input_unit = 8
+    integer(kind=i4b) :: file_level_count
+    integer(kind=i4b) :: level_index
+    integer(kind=i4b) :: line_count
+    integer(kind=i4b) :: line_id
+    integer(kind=i4b) :: line_index
+    integer(kind=i4b) :: partner_count
+    integer(kind=i4b) :: partner_index
+    integer(kind=i4b) :: partner_id
+    integer(kind=i4b) :: collision_count
+    integer(kind=i4b) :: temperature_count
+    integer(kind=i4b) :: i, j
+    real(kind=dp) :: einstein_a
+    real(kind=dp) :: energy
+    real(kind=dp) :: frequency
+    real(kind=dp) :: weight
 
-  !     Initialize all variables to zero before reading in the data
-  DO I=1,NLEV
-    ENERGIES(I)=0.0D0
-    WEIGHTS(I)=0.0D0
-    DO J=1,NLEV
-      A_COEFFS(I,J)=0.0D0
-      B_COEFFS(I,J)=0.0D0
-      FREQUENCIES(I,J)=0.0D0
-      DO K=1,NTEMP
-        TEMPERATURES(:,K)=0.0D0
-        H_COL(I,J,K)=0.0D0
-        EL_COL(I,J,K)=0.0D0
-        HE_COL(I,J,K)=0.0D0
-        H2_COL(I,J,K)=0.0D0
-        PH2_COL(I,J,K)=0.0D0
-        OH2_COL(I,J,K)=0.0D0
-      ENDDO
-    ENDDO
-  ENDDO
+    call clear_coolant_table(coolant_table)
 
-  OPEN(8,FILE=FILENAME,STATUS='OLD')
-  READ(8,'(////)') !empty line
-  READ(8,*) N !number of levels of the file
-  IF(N.NE.NLEV) STOP "ERROR! Incorrect number of energy levels, N>NLEV"
-  READ(8,*)
-  N=0
-  DO WHILE(N.LT.NLEV)
-    READ(8,*) N,ENERGY,WEIGHT
-    ENERGIES(N)=ENERGY*C*HP ! Convert from cm^-1 to erg
-    WEIGHTS(N)=WEIGHT
-  ENDDO
-  READ(8,*)
-  READ(8,*) NLIN
-  READ(8,*)
-  N=0
-  DO WHILE(N.LT.NLIN)
-    READ(8,*) N,I,J,EINSTEINA,FREQUENCY
-    FREQUENCIES(I,J)=FREQUENCY*1.0D9 ! Convert from GHz to Hz
-    FREQUENCIES(J,I)=FREQUENCIES(I,J)
-    A_COEFFS(I,J)=EINSTEINA
-    !        Calculate the Einstein B coefficients using Bij = Aij/(2.h.nu^3/c^2)
-    B_COEFFS(I,J)=A_COEFFS(I,J)&
-        &                 /(2.0D0*HP*(FREQUENCIES(I,J)**3)/(C**2))
-    B_COEFFS(J,I)=B_COEFFS(I,J)*(WEIGHTS(I)/WEIGHTS(J))
-  ENDDO
-  !     Calculate the transition frequencies between all levels (even if forbidden)
-  DO I=1,NLEV
-    DO J=1,NLEV
-      FREQUENCY=ABS(ENERGIES(I)-ENERGIES(J))/HP
-      IF(FREQUENCIES(I,J).NE.0.0D0) THEN
-        !              Check if the calculated and measured frequencies differ by >1%
-        IF(ABS(FREQUENCY-FREQUENCIES(I,J))&
-            &                /FREQUENCIES(I,J).GT.1.0D-2) THEN
-        WRITE(6,*) 'ERROR! Calculated frequency differs by >1%:'
-        WRITE(6,*) FREQUENCY,' Hz vs',FREQUENCIES(I,J),' Hz'
-        STOP
-      ENDIF
-    ELSE
-      FREQUENCIES(I,J)=FREQUENCY
-    ENDIF
-  ENDDO
-ENDDO
-READ(8,*)
-READ(8,*) NPART
-!     Read the collisional rate coefficients (cm^3 s^-1) for each collision partner
-DO L=1,NPART
-  READ(8,*)
-  READ(8,*) P
-  READ(8,*)
-  READ(8,*) NCOL
-  READ(8,*)
-  READ(8,*) M
-  IF(M.GT.NTEMP) THEN
-    WRITE(6,*) 'ERROR! Too many temperature values (>NTEMP):',M
-    STOP
-  ENDIF
-  IF(P.EQ.1) THEN
-    READ(8,*)
-    READ(8,*) (TEMPERATURES(P,K),K=1,M)
-    READ(8,*)
-    N=0
-    DO WHILE(N.LT.NCOL)
-      READ(8,*) N,I,J,(COEFF(K),K=1,M)
-      DO K=1,M
-        H2_COL(I,J,K)=COEFF(K)
-        !                 Calculate the reverse (excitation) rate coefficient
-        !                 from detailed balance: Cji = Cij*gi/gj*exp(-(Ei-Ej)/kT)
-        IF(H2_COL(I,J,K).NE.0.0D0 .AND. H2_COL(J,I,K).EQ.0.0D0) THEN
-          H2_COL(J,I,K)=H2_COL(I,J,K)*(WEIGHTS(I)/WEIGHTS(J)) &
-              &              *EXP(-(ENERGIES(I)-ENERGIES(J))/(KB*TEMPERATURES(P,K)))
-        ENDIF
-      ENDDO
-    ENDDO
-  ELSE IF(P.EQ.2) THEN
-    READ(8,*)
-    READ(8,*) (TEMPERATURES(P,K),K=1,M)
-    READ(8,*)
-    N=0
-    DO WHILE(N.LT.NCOL)
-      READ(8,*) N,I,J,(COEFF(K),K=1,M)
-      DO K=1,M
-        PH2_COL(I,J,K)=COEFF(K)
-        !                 Calculate the reverse (excitation) rate coefficient
-        !                 from detailed balance: Cji = Cij*gi/gj*exp(-(Ei-Ej)/kT)
-        IF(PH2_COL(I,J,K).NE.0.0D0 .AND. PH2_COL(J,I,K).EQ.0.0D0) THEN
-          PH2_COL(J,I,K)=PH2_COL(I,J,K)*(WEIGHTS(I)/WEIGHTS(J)) &
-              &              *EXP(-(ENERGIES(I)-ENERGIES(J))/(KB*TEMPERATURES(P,K)))
-        ENDIF
-      ENDDO
-    ENDDO
-    !         ELSE IF(P.EQ.3) THEN
-    !            READ(8,*)
-    !            READ(8,*) (TEMPERATURES(P,K),K=1,M)
-    !            READ(8,*)
-    !            N=0
-    !            DO WHILE(N.LT.NCOL)
-    !               READ(8,*) N,I,J,(COEFF(K),K=1,M)
-    !               DO K=1,M
-    !                  OH2_COL(I,J,K)=COEFF(K)
-    !!                 Calculate the reverse (excitation) rate coefficient
-    !!                 from detailed balance: Cji = Cij*gi/gj*exp(-(Ei-Ej)/kT)
-    !                  IF(PH2_COL(I,J,K).NE.0.0D0 .AND. PH2_COL(J,I,K).EQ.0.0D0) THEN
-    !                     PH2_COL(J,I,K)=PH2_COL(I,J,K)*(WEIGHTS(I)/WEIGHTS(J)) &
-    !     &              *EXP(-(ENERGIES(I)-ENERGIES(J))/(KB*TEMPERATURES(P,K)))
-    !                  ENDIF
-    !               ENDDO
-    !            ENDDO
-  ELSE IF(P.EQ.3) THEN
-    READ(8,*)
-    READ(8,*) (TEMPERATURES(P,K),K=1,M)
-    READ(8,*)
-    N=0
-    DO WHILE(N.LT.NCOL)
-      READ(8,*) N,I,J,(COEFF(K),K=1,M)
-      DO K=1,M
-        OH2_COL(I,J,K)=COEFF(K)
-        !                 Calculate the reverse (excitation) rate coefficient
-        !                 from detailed balance: Cji = Cij*gi/gj*exp(-(Ei-Ej)/kT)
-        IF(OH2_COL(I,J,K).NE.0.0D0 .AND. OH2_COL(J,I,K).EQ.0.0D0) THEN
-          OH2_COL(J,I,K)=OH2_COL(I,J,K)*(WEIGHTS(I)/WEIGHTS(J)) &
-              &              *EXP(-(ENERGIES(I)-ENERGIES(J))/(KB*TEMPERATURES(P,K)))
-        ENDIF
-      ENDDO
-    ENDDO
-  ELSE IF(P.EQ.4) THEN
-    READ(8,*)
-    READ(8,*) (TEMPERATURES(P,K),K=1,M)
-    READ(8,*)
-    N=0
-    DO WHILE(N.LT.NCOL)
-      READ(8,*) N,I,J,(COEFF(K),K=1,M)
-      DO K=1,M
-        EL_COL(I,J,K)=COEFF(K)
-        !                 Calculate the reverse (excitation) rate coefficient
-        !                 from detailed balance: Cji = Cij*gi/gj*exp(-(Ei-Ej)/kT)
-        IF(EL_COL(I,J,K).NE.0.0D0 .AND. EL_COL(J,I,K).EQ.0.0D0) THEN
-          EL_COL(J,I,K)=EL_COL(I,J,K)*(WEIGHTS(I)/WEIGHTS(J)) &
-              &              *EXP(-(ENERGIES(I)-ENERGIES(J))/(KB*TEMPERATURES(P,K)))
-        ENDIF
-      ENDDO
-    ENDDO
-  ELSE IF(P.EQ.5) THEN
-    READ(8,*)
-    READ(8,*) (TEMPERATURES(P,K),K=1,M)
-    READ(8,*)
-    N=0
-    DO WHILE(N.LT.NCOL)
-      READ(8,*) N,I,J,(COEFF(K),K=1,M)
-      DO K=1,M
-        H_COL(I,J,K)=COEFF(K)
-        !                 Calculate the reverse (excitation) rate coefficient
-        !                 from detailed balance: Cji = Cij*gi/gj*exp(-(Ei-Ej)/kT)
-        IF(H_COL(I,J,K).NE.0.0D0 .AND. H_COL(J,I,K).EQ.0.0D0) THEN
-          H_COL(J,I,K)=H_COL(I,J,K)*(WEIGHTS(I)/WEIGHTS(J)) &
-              &              *EXP(-(ENERGIES(I)-ENERGIES(J))/(KB*TEMPERATURES(P,K)))
-        ENDIF
-      ENDDO
-    ENDDO
-  ELSE IF(P.EQ.6) THEN
-    READ(8,*)
-    READ(8,*) (TEMPERATURES(P,K),K=1,M)
-    READ(8,*)
-    N=0
-    DO WHILE(N.LT.NCOL)
-      READ(8,*) N,I,J,(COEFF(K),K=1,M)
-      DO K=1,M
-        HE_COL(I,J,K)=COEFF(K)
-        !                 Calculate the reverse (excitation) rate coefficient
-        !                 from detailed balance: Cji = Cij*gi/gj*exp(-(Ei-Ej)/kT)
-        IF(HE_COL(I,J,K).NE.0.0D0 .AND. HE_COL(J,I,K).EQ.0.0D0) THEN
-          HE_COL(J,I,K)=HE_COL(I,J,K)*(WEIGHTS(I)/WEIGHTS(J)) &
-              &              *EXP(-(ENERGIES(I)-ENERGIES(J))/(KB*TEMPERATURES(P,K)))
-        ENDIF
-      ENDDO
-    ENDDO
-  ELSE IF(P.EQ.7) THEN
-    READ(8,*)
-    READ(8,*) (TEMPERATURES(P,K),K=1,M)
-    READ(8,*)
-    N=0
-    DO WHILE(N.LT.NCOL)
-      READ(8,*) N,I,J,(COEFF(K),K=1,M)
-      DO K=1,M
-        HP_COL(I,J,K)=COEFF(K)
-        !                 Calculate the reverse (excitation) rate coefficient
-        !                 from detailed balance: Cji = Cij*gi/gj*exp(-(Ei-Ej)/kT)
-        IF(HP_COL(I,J,K).NE.0.0D0 .AND. HP_COL(J,I,K).EQ.0.0D0) THEN
-          HP_COL(J,I,K)=HP_COL(I,J,K)*(WEIGHTS(I)/WEIGHTS(J)) &
-              &              *EXP(-(ENERGIES(I)-ENERGIES(J))/(KB*TEMPERATURES(P,K)))
-        ENDIF
-      ENDDO
-    ENDDO
-  ELSE
-    WRITE(6,*) 'ERROR! Unrecognized collision partner ID:',P
-    STOP
-  ENDIF
-ENDDO
+    open(input_unit,file=coolant_table%input_file,status='old')
+    read(input_unit,'(////)')
+    read(input_unit,*) file_level_count
+    if (file_level_count.ne.coolant_table%nlevels) stop 'Incorrect number of energy levels in coolant file'
 
-CLOSE(8)
-WRITE(6,*) 'Cooling datafile: ',FILENAME,' read successfully'
-RETURN
+    read(input_unit,*)
+    do level_index=1,file_level_count
+      read(input_unit,*) i, energy, weight
+      coolant_table%energies(i) = energy*c*hp
+      coolant_table%weights(i) = weight
+    enddo
 
-END subroutine
+    read(input_unit,*)
+    read(input_unit,*) line_count
+    read(input_unit,*)
+    do line_index=1,line_count
+      read(input_unit,*) line_id, i, j, einstein_a, frequency
+      coolant_table%frequencies(i,j) = frequency*1.0D9
+      coolant_table%frequencies(j,i) = coolant_table%frequencies(i,j)
+      coolant_table%a_coeffs(i,j) = einstein_a
+      coolant_table%b_coeffs(i,j) = coolant_table%a_coeffs(i,j) &
+          &/(2.0D0*hp*(coolant_table%frequencies(i,j)**3)/(c**2))
+      coolant_table%b_coeffs(j,i) = coolant_table%b_coeffs(i,j) &
+          &*(coolant_table%weights(i)/coolant_table%weights(j))
+    enddo
 
+    call fill_missing_transition_frequencies(coolant_table)
+
+    read(input_unit,*)
+    read(input_unit,*) partner_count
+    do partner_index=1,partner_count
+      read(input_unit,*)
+      read(input_unit,*) partner_id
+      call assert_valid_collision_partner(partner_id)
+
+      read(input_unit,*)
+      read(input_unit,*) collision_count
+      read(input_unit,*)
+      read(input_unit,*) temperature_count
+      if (temperature_count.gt.coolant_table%ntemperatures) then
+        write(6,*) 'ERROR! Too many temperature values (>NTEMP):', temperature_count
+        stop
+      endif
+
+      call read_collision_partner(input_unit, partner_id, collision_count, temperature_count, coolant_table)
+    enddo
+
+    close(input_unit)
+    write(6,*) 'Cooling datafile: ',trim(coolant_table%input_file),' read successfully'
+  end subroutine read_lamda_coolant_file
+
+  subroutine clear_coolant_table(coolant_table)
+    type(coolant_data), intent(inout) :: coolant_table
+
+    coolant_table%energies = 0.0D0
+    coolant_table%weights = 0.0D0
+    coolant_table%a_coeffs = 0.0D0
+    coolant_table%b_coeffs = 0.0D0
+    coolant_table%frequencies = 0.0D0
+    coolant_table%collision_temperatures = 0.0D0
+    coolant_table%collision_rates = 0.0D0
+  end subroutine clear_coolant_table
+
+  subroutine fill_missing_transition_frequencies(coolant_table)
+    type(coolant_data), intent(inout) :: coolant_table
+
+    integer(kind=i4b) :: i, j
+    real(kind=dp) :: calculated_frequency
+
+    do i=1,coolant_table%nlevels
+      do j=1,coolant_table%nlevels
+        calculated_frequency = abs(coolant_table%energies(i)-coolant_table%energies(j))/hp
+        if (coolant_table%frequencies(i,j).ne.0.0D0) then
+          if (abs(calculated_frequency-coolant_table%frequencies(i,j))/coolant_table%frequencies(i,j).gt.1.0D-2) then
+            write(6,*) 'ERROR! Calculated frequency differs by >1%:'
+            write(6,*) calculated_frequency,' Hz vs',coolant_table%frequencies(i,j),' Hz'
+            stop
+          endif
+        else
+          coolant_table%frequencies(i,j) = calculated_frequency
+        endif
+      enddo
+    enddo
+  end subroutine fill_missing_transition_frequencies
+
+  subroutine assert_valid_collision_partner(partner_id)
+    integer(kind=i4b), intent(in) :: partner_id
+
+    if (partner_id.lt.1 .or. partner_id.gt.COLLISION_PARTNER_COUNT) then
+      write(6,*) 'ERROR! Unrecognized collision partner ID:', partner_id
+      stop
+    endif
+  end subroutine assert_valid_collision_partner
+
+  subroutine read_collision_partner(input_unit, partner_id, collision_count, temperature_count, coolant_table)
+    integer(kind=i4b), intent(in) :: input_unit
+    integer(kind=i4b), intent(in) :: partner_id
+    integer(kind=i4b), intent(in) :: collision_count
+    integer(kind=i4b), intent(in) :: temperature_count
+    type(coolant_data), intent(inout) :: coolant_table
+
+    integer(kind=i4b) :: collision_index
+    integer(kind=i4b) :: row_id
+    integer(kind=i4b) :: lower_level
+    integer(kind=i4b) :: upper_level
+    integer(kind=i4b) :: temperature_index
+    real(kind=dp) :: coefficients(1:coolant_table%ntemperatures)
+
+    read(input_unit,*)
+    read(input_unit,*) (coolant_table%collision_temperatures(partner_id,temperature_index), &
+        &temperature_index=1,temperature_count)
+    read(input_unit,*)
+
+    do collision_index=1,collision_count
+      read(input_unit,*) row_id, upper_level, lower_level, &
+          &(coefficients(temperature_index),temperature_index=1,temperature_count)
+
+      do temperature_index=1,temperature_count
+        coolant_table%collision_rates(partner_id,upper_level,lower_level,temperature_index) = &
+            &coefficients(temperature_index)
+        call fill_reverse_collision_rate(coolant_table, partner_id, upper_level, lower_level, temperature_index)
+      enddo
+    enddo
+  end subroutine read_collision_partner
+
+  subroutine fill_reverse_collision_rate(coolant_table, partner_id, upper_level, lower_level, temperature_index)
+    type(coolant_data), intent(inout) :: coolant_table
+    integer(kind=i4b), intent(in) :: partner_id
+    integer(kind=i4b), intent(in) :: upper_level
+    integer(kind=i4b), intent(in) :: lower_level
+    integer(kind=i4b), intent(in) :: temperature_index
+
+    real(kind=dp) :: downward_rate
+    real(kind=dp) :: excitation_factor
+
+    downward_rate = coolant_table%collision_rates(partner_id,upper_level,lower_level,temperature_index)
+    if (downward_rate.eq.0.0D0) return
+    if (coolant_table%collision_rates(partner_id,lower_level,upper_level,temperature_index).ne.0.0D0) return
+
+    excitation_factor = (coolant_table%weights(upper_level)/coolant_table%weights(lower_level)) &
+        &*exp(-(coolant_table%energies(upper_level)-coolant_table%energies(lower_level)) &
+        &/(kb*coolant_table%collision_temperatures(partner_id,temperature_index)))
+    coolant_table%collision_rates(partner_id,lower_level,upper_level,temperature_index) = &
+        &downward_rate*excitation_factor
+  end subroutine fill_reverse_collision_rate
+
+end module coolant_input_module

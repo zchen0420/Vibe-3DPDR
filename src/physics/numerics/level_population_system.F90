@@ -48,17 +48,3 @@ contains
   end subroutine solve_statistical_equilibrium
 
 end module level_population_system_module
-
-subroutine solve_level_population_system(nlev, transition, density, solution)
-  use definitions, only : dp
-  use healpix_types, only : i4b
-  use level_population_system_module, only : solve_statistical_equilibrium
-  implicit none
-
-  integer(kind=i4b), intent(in) :: nlev
-  real(kind=dp), intent(in) :: density
-  real(kind=dp), intent(in) :: transition(1:nlev,1:nlev)
-  real(kind=dp), intent(out) :: solution(1:nlev)
-
-  call solve_statistical_equilibrium(transition, density, solution)
-end subroutine solve_level_population_system

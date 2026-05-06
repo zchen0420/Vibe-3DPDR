@@ -8,6 +8,14 @@ module coolants_module
   integer(kind=i4b), parameter :: COOLANT_CI = 2
   integer(kind=i4b), parameter :: COOLANT_OI = 3
   integer(kind=i4b), parameter :: COOLANT_C12O = 4
+  integer(kind=i4b), parameter :: COLLISION_PARTNER_COUNT = 7
+  integer(kind=i4b), parameter :: COLLIDER_H2 = 1
+  integer(kind=i4b), parameter :: COLLIDER_PARA_H2 = 2
+  integer(kind=i4b), parameter :: COLLIDER_ORTHO_H2 = 3
+  integer(kind=i4b), parameter :: COLLIDER_ELECTRON = 4
+  integer(kind=i4b), parameter :: COLLIDER_H = 5
+  integer(kind=i4b), parameter :: COLLIDER_HE = 6
+  integer(kind=i4b), parameter :: COLLIDER_PROTON = 7
 
   character(len=4), parameter :: COOLANT_LABELS(COOLANT_COUNT) = (/&
       &'CII ', 'CI  ', 'OI  ', 'CO  '/)
@@ -23,14 +31,8 @@ module coolants_module
     real(kind=dp), allocatable :: a_coeffs(:,:)
     real(kind=dp), allocatable :: b_coeffs(:,:)
     real(kind=dp), allocatable :: frequencies(:,:)
-    real(kind=dp), allocatable :: temperatures(:,:)
-    real(kind=dp), allocatable :: hp(:,:,:)
-    real(kind=dp), allocatable :: h(:,:,:)
-    real(kind=dp), allocatable :: el(:,:,:)
-    real(kind=dp), allocatable :: he(:,:,:)
-    real(kind=dp), allocatable :: h2(:,:,:)
-    real(kind=dp), allocatable :: ph2(:,:,:)
-    real(kind=dp), allocatable :: oh2(:,:,:)
+    real(kind=dp), allocatable :: collision_temperatures(:,:)
+    real(kind=dp), allocatable :: collision_rates(:,:,:,:)
   end type coolant_data
 
   type :: point_coolant_state

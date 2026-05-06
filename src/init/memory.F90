@@ -3,7 +3,8 @@ module memory_module
   use healpix_types, only : i4b
   use chemistry_network_module, only : allocate_chemistry_state
   use thermal_state_module, only : allocate_temperature_state, allocate_thermal_balance_state
-  use coolants_module, only : COOLANT_COUNT, COOLANT_CII, COOLANT_CI, COOLANT_OI, COOLANT_C12O, coolant_data
+  use coolants_module, only : COLLISION_PARTNER_COUNT, COOLANT_COUNT, COOLANT_CII, COOLANT_CI, COOLANT_OI, &
+      &COOLANT_C12O, coolant_data
 
 contains
 
@@ -66,14 +67,9 @@ contains
     allocate(coolant_table%a_coeffs(1:coolant_table%nlevels,1:coolant_table%nlevels))
     allocate(coolant_table%b_coeffs(1:coolant_table%nlevels,1:coolant_table%nlevels))
     allocate(coolant_table%frequencies(1:coolant_table%nlevels,1:coolant_table%nlevels))
-    allocate(coolant_table%temperatures(1:7,1:coolant_table%ntemperatures))
-    allocate(coolant_table%hp(1:coolant_table%nlevels,1:coolant_table%nlevels,1:coolant_table%ntemperatures))
-    allocate(coolant_table%h(1:coolant_table%nlevels,1:coolant_table%nlevels,1:coolant_table%ntemperatures))
-    allocate(coolant_table%el(1:coolant_table%nlevels,1:coolant_table%nlevels,1:coolant_table%ntemperatures))
-    allocate(coolant_table%he(1:coolant_table%nlevels,1:coolant_table%nlevels,1:coolant_table%ntemperatures))
-    allocate(coolant_table%h2(1:coolant_table%nlevels,1:coolant_table%nlevels,1:coolant_table%ntemperatures))
-    allocate(coolant_table%ph2(1:coolant_table%nlevels,1:coolant_table%nlevels,1:coolant_table%ntemperatures))
-    allocate(coolant_table%oh2(1:coolant_table%nlevels,1:coolant_table%nlevels,1:coolant_table%ntemperatures))
+    allocate(coolant_table%collision_temperatures(1:COLLISION_PARTNER_COUNT,1:coolant_table%ntemperatures))
+    allocate(coolant_table%collision_rates(1:COLLISION_PARTNER_COUNT,1:coolant_table%nlevels, &
+        &1:coolant_table%nlevels,1:coolant_table%ntemperatures))
   end subroutine allocate_coolant_arrays
 
 end module memory_module

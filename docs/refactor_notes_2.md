@@ -25,13 +25,23 @@ Completed in this pass:
   reads as collision rates, LVG transition rates, then statistical equilibrium,
   instead of passing every cooling-table, ray, and output array at the call site.
 - Added `level_population_system_module` with
-  `solve_statistical_equilibrium(transition, density, solution)`, leaving the
-  old `solve_level_population_system` as a compatibility wrapper.
+  `solve_statistical_equilibrium(transition, density, solution)` and removed the
+  old `solve_level_population_system` compatibility wrapper.
 - Added `point_reaction_rates_module` so chemistry iteration, thermal balance,
   and dark-region chemistry call `calculate_point_reaction_rates(...)` instead
   of each reconstructing the long `calculate_reaction_rates` argument list.
 - Added `tests/test_level_population_system.F90` to lock down the new statistical
   equilibrium interface on a small two-level system.
+- Replaced the seven coolant collision-partner arrays with
+  `collision_rates(partner_id, upper, lower, temperature_index)` plus
+  `collision_temperatures(partner_id, temperature_index)`.
+- Replaced `READINPUT` with the lowercase module entry
+  `read_lamda_coolant_file(coolant_table)`, backed by shared
+  `read_collision_partner` and `fill_reverse_collision_rate` helpers.
+- Replaced `find_collision_coefficients` with
+  `calculate_collision_coefficients(coolant_table, gas_temperature,
+  collider_density, coefficients)` and added
+  `tests/test_collision_coefficients.F90`.
 
 Updated recommendation:
 
@@ -154,8 +164,9 @@ Recommended test coverage:
 
 ## Priority 4: LAMDA/RADEX Reader
 
-`src/io/read_input.F90` has seven collision-partner branches that all do the
-same sequence:
+Status: complete for the collision partner layout and reader duplication.
+`src/io/read_input.F90` now reads LAMDA/RADEX collision partners with one helper
+instead of seven partner-specific branches. The old repeated sequence was:
 
 - skip a line
 - read temperatures
@@ -163,21 +174,21 @@ same sequence:
 - store coefficients into one partner-specific array
 - calculate reverse rates by detailed balance
 
-This can become a helper such as:
+This is now handled by helpers:
 
-- `read_collision_partner(input_unit, partner_id, ntemp, ncol, temperatures, coeffs, energies, weights)`
-- `fill_reverse_collision_rates(coeffs, temperatures, energies, weights, partner_id, nlevels, ntemps)`
+- `read_collision_partner(input_unit, partner_id, collision_count, temperature_count, coolant_table)`
+- `fill_reverse_collision_rate(coolant_table, partner_id, upper_level, lower_level, temperature_index)`
 
-Because the arrays are currently separate (`H_COL`, `HP_COL`, `EL_COL`,
-`HE_COL`, `H2_COL`, `PH2_COL`, `OH2_COL`), the cleanest medium-term refactor is
-to introduce a collision partner array in the coolant state:
+The separate arrays (`H_COL`, `HP_COL`, `EL_COL`, `HE_COL`, `H2_COL`,
+`PH2_COL`, `OH2_COL`) were removed from `coolant_data` and replaced by:
 
-- `collision_rates(partner_id, lower, upper, temperature_index)`
+- `collision_temperatures(partner_id, temperature_index)`
+- `collision_rates(partner_id, upper, lower, temperature_index)`
 
-This pass hides the long `find_collision_coefficients` call behind
-`update_collision_rates` in the LVG solver, but the legacy numerical routine
-still receives seven separate arrays. Converting the coolant data layout to
-`collision_rates(...)` remains the real cleanup for that routine.
+`src/physics/numerics/collision_coefficients.F90` is now a module exposing
+`calculate_collision_coefficients`. It receives a coolant table and local
+collider-density vector, so the LVG solver no longer knows about file-layout
+details or seven partner-specific arrays.
 
 ## Priority 5: Output Writers
 
@@ -234,9 +245,9 @@ small reaction-class dispatch once each branch has a helper.
 `level_population_diagnostics.F90` still use old uppercase procedure names and
 comment styles. Recommended cleanup:
 
-- Partial progress: `level_population_system.F90` now exposes the descriptive
-  module entry `solve_statistical_equilibrium(...)`; the old external name is
-  retained as a wrapper for compatibility.
+- Partial progress: `level_population_system.F90` now exposes only the
+  descriptive module entry `solve_statistical_equilibrium(...)`; the old
+  external name was removed.
 - Rename `GAUSS_JORDAN` to `solve_linear_system_gauss_jordan`.
 - Rename `GAUSS_JORDAN_writes` to `dump_level_population_solver_diagnostics`.
 - Rename `SPLINE`, `SPLINT`, `SPLIE2`, and `SPLIN2` to lowercase descriptive
@@ -263,7 +274,7 @@ larger than ordinary Fortran cleanup.
 2. Done: collapse `evaluation_points` dark/PDR construction into one source builder.
 3. Extend the default regression check to assert the printed evaluation point count.
 4. Normalize shielding indentation, then add wrappers for descriptive names.
-5. Extract LAMDA collision-partner reader helpers and move the seven
+5. Done: extract LAMDA collision-partner reader helpers and move the seven
    collision-partner arrays into one `collision_rates(...)` table.
 6. Table-drive output writers and name the special PDR output order.
 7. Continue shrinking `heating_rates` and `reaction_rates` branch by branch.
